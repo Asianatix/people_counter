@@ -118,8 +118,9 @@ class Detector(object):
                     bbox_cords = get_bbox_cords(bbox_xyxy, identities)
                     bbox_cords_cpy = bbox_cords.copy()
                 # If display is true display to cv window.
-                if self.args.display:
+                if self.args.display or  self.args.save_video_to:
                     if len(outputs) > 0:
+                       
                         im = draw_bboxes(im, bbox_xyxy, identities)
             # No people found 
             else:
@@ -141,8 +142,9 @@ class Detector(object):
             self.frame_count += 1
             if self.args.save_video_to:
                 self.video_output.write(im)
-                self.video_output.release()
+                
                 if self.frame_count % self.args.save_video_freq == 0:
+                    self.video_output.release()
                     print("Video saved")
                     self._set_video_writer("{}/{}_{}.mp4".format(self.args.save_video_to, self.frame_count, self.frame_count + self.args.save_video_freq))
                 
