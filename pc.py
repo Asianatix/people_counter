@@ -154,7 +154,7 @@ class Detector(object):
             j_dict["people_count"] = ct
             j_dict["crowd_flag"] = crowd_flag
             j_dict["bboxes_list"] = bbox_cords_cpy
-            print(bbox_cords_cpy)
+            
             json.dump(j_dict, open("jsons/sample.json", 'w'))
 
             if not self.args.supress_verbose:
@@ -169,7 +169,7 @@ def parse_args():
     parser.add_argument("--proc_freq", type=int, default=3)
     parser.add_argument("--display",  action="store_true",help="To display on cv window")
     parser.add_argument("--save_video_to", type=str, default=None, help="Save path to video")
-    parser.add_argument("--save_video_freq", type=int, default=1000, help="Save video at this number of frames")
+    parser.add_argument("--save_video_freq", type=int, default=10000, help="Save video at this number of frames")
     parser.add_argument("--save_csv_path", default="demo.xlsx")
     parser.add_argument("--people_count_thresh", default=5)
     parser.add_argument("--csv_save_freq", help="frequency in seconds with which the data will enter in csv", default=1)
