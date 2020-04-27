@@ -18,7 +18,8 @@ import cv2
 
 from deep_sort import DeepSort
 from detectron2_detection import Detectron2
-from util import draw_bboxes
+from util import draw_bboxes, get_bbox_cords
+import json 
 
 
 class Detector(object):
@@ -50,6 +51,14 @@ class Detector(object):
         if exc_type:
             print(exc_type, exc_value, exc_traceback)
 
+    def _get_frame_dict(self):
+        return dict(
+            frame_id = "",
+            people_count = 0,
+            crowd_flag = False,
+            bboxes_list = [] 
+        )
+
     def detect(self):
         thresh_column_name = "Is crowd > {}".format(self.args.people_count_thresh)
         df = pd.DataFrame(columns=["Frame ID", "people count", thresh_column_name])
@@ -66,10 +75,12 @@ class Detector(object):
         self.processing_frame_count = 0
         model_avg_time = 0.0
         proc_avg_time = 0.0
+        bbox_cords_cpy = []
         while self.vdo.grab():
             start_time = time.time()
             _, im = self.vdo.retrieve()
-            
+            j_dict = self._get_frame_dict()
+            j_dict["frame_id"] = self.frame_count
             if self.frame_count % self.args.proc_freq == 0:
                 self.processing_frame_count += 1
                 model_init_time = time.time()
@@ -101,12 +112,14 @@ class Detector(object):
                     count_list = []
                 else:
                     count_list.append(len(outputs))
-
+                if len(outputs) > 0:
+                    bbox_xyxy = outputs[:, :4]
+                    identities = outputs[:, -1]
+                    bbox_cords = get_bbox_cords(bbox_xyxy, identities)
+                    bbox_cords_cpy = bbox_cords.copy()
                 # If display is true display to cv window.
                 if self.args.display:
                     if len(outputs) > 0:
-                        bbox_xyxy = outputs[:, :4]
-                        identities = outputs[:, -1]
                         im = draw_bboxes(im, bbox_xyxy, identities)
             # No people found 
             else:
@@ -137,6 +150,13 @@ class Detector(object):
                 new_df = pd.concat([df, pd.DataFrame(df_list)])
                 new_df.to_excel(self.args.save_csv_path, index=False, encoding='utf-8-sig')
             proc_avg_time = (proc_avg_time * (self.frame_count-1) + time.time() - start_time)/self.frame_count
+
+            j_dict["people_count"] = ct
+            j_dict["crowd_flag"] = crowd_flag
+            j_dict["bboxes_list"] = bbox_cords_cpy
+            print(bbox_cords_cpy)
+            json.dump(j_dict, open("jsons/sample.json", 'w'))
+
             if not self.args.supress_verbose:
                 avg_fps = self.frame_count // (time.time() - init_time)
                 print ("\t\tFrame:{} poeple_count:{} : crowd:{} FPS:{} avg_model_time: {:.4f} avg_processing_frame_time:{:.4f}".format(self.frame_count, ct, crowd_flag,avg_fps, model_avg_time, proc_avg_time))
@@ -155,6 +175,7 @@ def parse_args():
     parser.add_argument("--csv_save_freq", help="frequency in seconds with which the data will enter in csv", default=1)
     parser.add_argument("--use_cuda", type=str, default="True")
     parser.add_argument("--supress_verbose", action="store_true", help="Supress print statements ")
+    # parser.add_argument("--save_json")
     return parser.parse_args()
 
 
