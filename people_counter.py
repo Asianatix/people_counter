@@ -1,5 +1,8 @@
 import PIL
-PIL.PILLOW_VERSION = PIL.__version__
+try:
+    _ = PIL.PILLO_VERSION
+except:
+    PIL.PILLOW_VERSION = PIL.__version__
 import argparse
 import argparse
 import os
