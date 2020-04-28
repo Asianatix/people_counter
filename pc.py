@@ -154,6 +154,9 @@ class Detector(object):
                     self.video_output.release()
                     print("Video saved")
                     self._set_video_writer("{}/{}_{}_{}".format(self.args.save_video_to, self.frame_count, self.frame_count + self.args.save_video_freq, self.vd_name))
+            if self.args.save_as_frames:
+                frame_path = "{}/{}.jpg".format(self.args.save_video_to, self.frame_count)
+                cv2.imwrite(frame_path, im)
                 
             if self.args.save_csv_path:
                 new_df = pd.concat([df, pd.DataFrame(df_list)])
@@ -199,6 +202,7 @@ def parse_args():
     parser.add_argument("--csv_save_freq", help="frequency in seconds with which the data will enter in csv", default=1)
     parser.add_argument("--use_cuda", type=str, default="True")
     parser.add_argument("--supress_verbose", action="store_true", help="Supress print statements ")
+    parser.add_argument("--save_as_frames", action="store_true", help="save_as_frames")
     # parser.add_argument("--save_json")
     return parser.parse_args()
 
