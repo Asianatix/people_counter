@@ -70,14 +70,19 @@ class Detector(object):
             fps = None
             print("FPS not found in video meta data. Video path is not found or r rtsp stream  ")
             
-        init_time = time.time()
+        
         self.frame_count = 0
         self.processing_frame_count = 0
+        
         model_avg_time = 0.0
+        model_total_time = 0.0
+
         proc_avg_time = 0.0
+        proc_total_time = 0.0
+        init_time = time.time()
         bbox_cords_cpy = []
         while self.vdo.grab():
-            start_time = time.time()
+            frame_start_time = time.time()
             _, im = self.vdo.retrieve()
             j_dict = self._get_frame_dict()
             j_dict["frame_id"] = self.frame_count
@@ -86,7 +91,8 @@ class Detector(object):
                 model_init_time = time.time()
                 bbox_xcycwh, cls_conf, cls_ids = self.detectron2.detect(im)
                 model_end_time = time.time()
-                model_avg_time = ((model_end_time - model_init_time) + model_avg_time * self.processing_frame_count)/self.processing_frame_count
+                #print("Model time: {:.4f}".format(model_end_time - model_init_time))
+                model_avg_time = (model_total_time + (model_end_time - model_init_time))/self.processing_frame_count
                 bbox_xcycwh_cpy = copy.deepcopy(bbox_xcycwh)
                 cls_conf_cpy = copy.deepcopy(cls_conf)
                 cls_ids_cpy = copy.deepcopy(cls_ids)
@@ -151,7 +157,8 @@ class Detector(object):
             if self.args.save_csv_path:
                 new_df = pd.concat([df, pd.DataFrame(df_list)])
                 new_df.to_excel(self.args.save_csv_path, index=False, encoding='utf-8-sig')
-            proc_avg_time = (proc_avg_time * (self.frame_count-1) + time.time() - start_time)/self.frame_count
+            proc_total_time = proc_total_time + (time.time() - frame_start_time)
+            
 
             j_dict["people_count"] = ct
             j_dict["crowd_flag"] = crowd_flag
@@ -160,18 +167,32 @@ class Detector(object):
             json.dump(j_dict, open("jsons/sample.json", 'w'))
 
             if not self.args.supress_verbose:
-                avg_fps = self.frame_count // (time.time() - init_time)
-                print ("\t\tFrame:{} poeple_count:{} : crowd:{} FPS:{} avg_model_time: {:.4f} avg_processing_frame_time:{:.4f}".format(self.frame_count, ct, crowd_flag,avg_fps, model_avg_time, proc_avg_time))
+                
+                model_avg_fps = self.frame_count // proc_total_time
+                proc_avg_time = proc_total_time / self.frame_count
+                frame_time = (time.time() - frame_start_time)
+                nn_time = model_end_time - model_init_time
+                actual_fps =   self.frame_count // (time.time() - init_time)
+                print ("\t\tFrame:{} poeple_count:{} : crowd:{} Model_FPS:{} Actual_FPS:{} nn_time/avg:[{:.4f}/{:.4f}], frame_time/avg:[{:.4f}/{:.4f}]".format(
+                    self.frame_count,
+                    ct,
+                    crowd_flag,
+                    model_avg_fps,
+                    actual_fps,
+                    nn_time,
+                    model_avg_time,
+                    frame_time,
+                    proc_avg_time))
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--video_path",  default=0, help="Path to video or path to rtsp stream")
+    parser.add_argument("--video_path",  default="sample_videos/demo.mp4", help="Path to video or path to rtsp stream")
     parser.add_argument("--deepsort_checkpoint", type=str, default="deep_sort/deep/checkpoint/ckpt.t7")
     parser.add_argument("--proc_freq", type=int, default=3)
     parser.add_argument("--display",  action="store_true",help="To display on cv window")
     parser.add_argument("--save_video_to", type=str, default=None, help="Save path to video")
-    parser.add_argument("--save_video_freq", type=int, default=10000, help="Save video at this number of frames")
+    parser.add_argument("--save_video_freq", type=int, default=100000, help="Save video at this number of frames")
     parser.add_argument("--save_csv_path", default="demo.xlsx")
     parser.add_argument("--people_count_thresh", default=5)
     parser.add_argument("--csv_save_freq", help="frequency in seconds with which the data will enter in csv", default=1)
