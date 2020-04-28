@@ -39,10 +39,11 @@ class Detector(object):
     def __enter__(self):
      #   assert os.path.isfile(self.args.VIDEO_PATH), "Error: path error"
         self.vdo.open(self.args.video_path)
+        self.vd_name = os.path.basename(self.args.video_path)
         self.im_width = int(self.vdo.get(cv2.CAP_PROP_FRAME_WIDTH))
         self.im_height = int(self.vdo.get(cv2.CAP_PROP_FRAME_HEIGHT))
         if self.args.save_video_to:
-            self._set_video_writer("{}/0_{}.mp4".format(self.args.save_video_to,self.args.save_video_freq))
+            self._set_video_writer("{}/0_{}_{}".format(self.args.save_video_to,self.args.save_video_freq, self.vd_name))
 
         assert self.vdo.isOpened()
         return self
@@ -152,7 +153,7 @@ class Detector(object):
                 if self.frame_count % self.args.save_video_freq == 0:
                     self.video_output.release()
                     print("Video saved")
-                    self._set_video_writer("{}/{}_{}.mp4".format(self.args.save_video_to, self.frame_count, self.frame_count + self.args.save_video_freq))
+                    self._set_video_writer("{}/{}_{}_{}".format(self.args.save_video_to, self.frame_count, self.frame_count + self.args.save_video_freq, self.vd_name))
                 
             if self.args.save_csv_path:
                 new_df = pd.concat([df, pd.DataFrame(df_list)])
