@@ -29,7 +29,8 @@ class Detector(object):
         self.vdo = cv2.VideoCapture()
         self.detectron2 = Detectron2()
         self.deepsort = DeepSort(args.deepsort_checkpoint, use_cuda=use_cuda)
-        self._set_tcp_client()
+        if self.args.tcp_ip_port is not None:
+            self._set_tcp_client()
     
     def _set_tcp_client(self):
         ip, port = self.args.tcp_ip_port.strip().split(':')
@@ -169,26 +170,21 @@ class Detector(object):
                 new_df.to_excel(self.args.save_csv_path, index=False, encoding='utf-8-sig')
             proc_total_time = proc_total_time + (time.time() - frame_start_time)
             
-
-            j_dict["people_count"] = ct
-            j_dict["crowd_flag"] = crowd_flag
-            j_dict["bboxes_list"] = bbox_cords_cpy
-            json.dump(j_dict, open("jsons/sample.json", 'w'))
-
-            frame_bbox_flat = []
-            for bbox in bbox_cords_cpy:
-                bbox[0], bbox[2] = bbox[0]/f_w, bbox[2]/f_w
-                bbox[1], bbox[3] = bbox[0]/f_h, bbox[2]/f_h
-                frame_bbox_flat += bbox
-            
-            print("Sennding to tcp client: {}".format(frame_bbox_flat))
-            try:
-                # if len(frame_bbox_flat) == 0:
-                #     frame_bbox_flat = [1,2,3,4]
-                self.tcp_client.SendBoundingBoxes(frame_bbox_flat)
-            except Exception as e:
-                print(e)
-                print("Unable to send data to TCP server")
+            if self.args.tcp_ip_port is not None:
+                frame_bbox_flat = []
+                for bbox in bbox_cords_cpy:
+                    bbox[0], bbox[2] = bbox[0]/f_w, bbox[2]/f_w
+                    bbox[1], bbox[3] = bbox[0]/f_h, bbox[2]/f_h
+                    frame_bbox_flat += bbox
+                
+                print("Sennding to tcp client: {}".format(frame_bbox_flat))
+                try:
+                    # if len(frame_bbox_flat) == 0:
+                    #     frame_bbox_flat = [1,2,3,4]
+                    self.tcp_client.SendBoundingBoxes(frame_bbox_flat)
+                except Exception as e:
+                    print(e)
+                    print("Unable to send data to TCP server")
 
 
             if not self.args.supress_verbose:
@@ -223,7 +219,7 @@ def parse_args():
     parser.add_argument("--csv_save_freq", help="frequency in seconds with which the data will enter in csv", default=1)
     parser.add_argument("--use_cuda", type=str, default="True")
     parser.add_argument("--supress_verbose", action="store_true", help="Supress print statements ")
-    parser.add_argument("--tcp_ip_port", type=str, help="IP:PORT of tcp server", default="127.0.0.1:9999")
+    parser.add_argument("--tcp_ip_port", type=str, help="IP:PORT of tcp server", default=None)
     parser.add_argument("--save_frames_to",default=None, type=str)
     # parser.add_argument("--save_json")
     return parser.parse_args()
