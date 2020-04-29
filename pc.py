@@ -20,7 +20,7 @@ from deep_sort import DeepSort
 from detectron2_detection import Detectron2
 from util import draw_bboxes, get_bbox_cords
 import json 
-
+from TCP.TCPClient import TCPClient
 
 class Detector(object):
     def __init__(self, args):
@@ -28,9 +28,14 @@ class Detector(object):
         use_cuda = bool(strtobool(self.args.use_cuda))
         self.vdo = cv2.VideoCapture()
         self.detectron2 = Detectron2()
-       
-
         self.deepsort = DeepSort(args.deepsort_checkpoint, use_cuda=use_cuda)
+        self._set_tcp_client()
+    
+    def _set_tcp_client(self):
+        ip, port = self.args.tcp_ip_port.strip().split(':')
+        port = int(port)
+        self.tcp_client = TCPClient(ip, port)
+        self.tcp_client.LaunchConnection()
 
     def _set_video_writer(self, video_path):
         fourcc = cv2.VideoWriter_fourcc(*'MJPG')
@@ -87,6 +92,7 @@ class Detector(object):
             _, im = self.vdo.retrieve()
             j_dict = self._get_frame_dict()
             j_dict["frame_id"] = self.frame_count
+            f_h, f_w = im.shape[:2]
             if self.frame_count % self.args.proc_freq == 0:
                 self.processing_frame_count += 1
                 model_init_time = time.time()
@@ -167,8 +173,23 @@ class Detector(object):
             j_dict["people_count"] = ct
             j_dict["crowd_flag"] = crowd_flag
             j_dict["bboxes_list"] = bbox_cords_cpy
-            
             json.dump(j_dict, open("jsons/sample.json", 'w'))
+
+            frame_bbox_flat = []
+            for bbox in bbox_cords_cpy:
+                bbox[0], bbox[2] = bbox[0]/f_w, bbox[2]/f_w
+                bbox[1], bbox[3] = bbox[0]/f_h, bbox[2]/f_h
+                frame_bbox_flat += bbox
+            
+            print("Sennding to tcp client: {}".format(frame_bbox_flat))
+            try:
+                # if len(frame_bbox_flat) == 0:
+                #     frame_bbox_flat = [1,2,3,4]
+                self.tcp_client.SendBoundingBoxes(frame_bbox_flat)
+            except Exception as e:
+                print(e)
+                print("Unable to send data to TCP server")
+
 
             if not self.args.supress_verbose:
                 
@@ -191,7 +212,7 @@ class Detector(object):
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--video_path",  default="sample_videos/demo.mp4", help="Path to video or path to rtsp stream")
+    parser.add_argument("--video_path",  default=0, help="Path to video or path to rtsp stream")
     parser.add_argument("--deepsort_checkpoint", type=str, default="deep_sort/deep/checkpoint/ckpt.t7")
     parser.add_argument("--proc_freq", type=int, default=3)
     parser.add_argument("--display",  action="store_true",help="To display on cv window")
@@ -202,7 +223,7 @@ def parse_args():
     parser.add_argument("--csv_save_freq", help="frequency in seconds with which the data will enter in csv", default=1)
     parser.add_argument("--use_cuda", type=str, default="True")
     parser.add_argument("--supress_verbose", action="store_true", help="Supress print statements ")
-    
+    parser.add_argument("--tcp_ip_port", type=str, help="IP:PORT of tcp server", default="127.0.0.1:9999")
     parser.add_argument("--save_frames_to",default=None, type=str)
     # parser.add_argument("--save_json")
     return parser.parse_args()
