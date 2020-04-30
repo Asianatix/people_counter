@@ -19,6 +19,8 @@ class TCPClient:
         self.launchThread = threading.Thread(target=self.SendData)
         self.currentFrameNumber = 0
         self.previousFrameNumber = 0
+        self.eventFlag = threading.Event()
+        self.eventFlag.clear()
 
     def ConnectToHost(self):
         try:
@@ -36,6 +38,8 @@ class TCPClient:
 
     def SendData(self):
         while not self.closeConnection:
+            self.eventFlag.wait(10)
+            self.eventFlag.clear()
             if self.currentFrameNumber <= self.previousFrameNumber:
                 continue
             else:
@@ -57,7 +61,7 @@ class TCPClient:
                 if(self.connectionStatus == True):
                     #self.sock.recv(1024)
                     if(len(newboundingBoxes) > 0):
-                        n_boxes = int(len(newboundingBoxes))
+                        n_boxes = int(len(newboundingBoxes)/4)
                         n_boxes_bytes = n_boxes.to_bytes(4, byteorder='big')
                         self.sock.sendall(n_boxes_bytes)
                         data = struct.pack('f' * len(newboundingBoxes), *newboundingBoxes)
@@ -75,6 +79,7 @@ class TCPClient:
         self.boundingBoxes = boundingBoxes.copy()
         self.currentFrameNumber = self.currentFrameNumber + 1
         self.mutex.release()
+        self.eventFlag.set()  
 
     def CloseConnection(self):
         self.closeConnection = True
@@ -103,7 +108,7 @@ def main():
         client.SendBoundingBoxes(boundingBoxesList[counter%4])
         counter += 1
         print(counter)
-        time.sleep(2)
+        time.sleep(0.01)
     client.CloseConnection()
 
 if __name__ == "__main__":

@@ -76,7 +76,7 @@ class TCPServer:
         raw_msglen = self.ReceiveAll(4)
         if not raw_msglen:
             return None
-        msglen = struct.unpack('>I', raw_msglen)[0]
+        msglen = 4*struct.unpack('>I', raw_msglen)[0]
         # Read the message data
         data = self.ReceiveAll(msglen*4)
         return data,msglen
