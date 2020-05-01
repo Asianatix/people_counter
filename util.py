@@ -48,7 +48,7 @@ def draw_bboxes(img, bbox, identities=None, offset=(0,0)):
         area = h*w
         cv2.putText(img,"{}_{}_{}".format(area, h, w),(x1,y1+t_size[1]+4), cv2.FONT_HERSHEY_PLAIN, 2, [255,255,255], 2)
     return img
-def get_bbox_cords(bbox, identities, offset=(0, 0)):
+def get_bbox_xywh(bbox, identities, offset=(0, 0)):
     ret_boxes = []
     for i,box in enumerate(bbox):
         x1,y1,x2,y2 = [int(i) for i in box]
@@ -56,7 +56,8 @@ def get_bbox_cords(bbox, identities, offset=(0, 0)):
         x2 += offset[0]
         y1 += offset[1]
         y2 += offset[1]
-        ret_boxes.append([x1, y2, x2, y2])
+        x,y,w,h = x1, y1, abs(x2-x1), abs(y2-y1)
+        ret_boxes.append([x, y, w, h])
     return ret_boxes
 def softmax(x):
     assert isinstance(x, np.ndarray), "expect x be a numpy array"

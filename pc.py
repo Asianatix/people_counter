@@ -18,7 +18,7 @@ import cv2
 
 from deep_sort import DeepSort
 from detectron2_detection import Detectron2
-from util import draw_bboxes, get_bbox_cords
+from util import draw_bboxes, get_bbox_xywh
 import json 
 from TCP.TCPClient import TCPClient
 
@@ -129,8 +129,8 @@ class Detector(object):
                 if len(outputs) > 0:
                     bbox_xyxy = outputs[:, :4]
                     identities = outputs[:, -1]
-                    bbox_cords = get_bbox_cords(bbox_xyxy, identities)
-                    bbox_cords_cpy = bbox_cords.copy()
+                    bbox_xywh = get_bbox_xywh(bbox_xyxy, identities)
+                    bbox_cords_cpy = copy.deepcopy(bbox_xywh)
                 # If display is true display to cv window.
                 if self.args.display or  self.args.save_video_to or (self.args.save_frames_to is not None):
                     if len(outputs) > 0:
@@ -173,14 +173,11 @@ class Detector(object):
             if self.args.tcp_ip_port is not None:
                 frame_bbox_flat = []
                 for bbox in bbox_cords_cpy:
-                    bbox[0], bbox[2] = bbox[0]/f_w, bbox[2]/f_w
-                    bbox[1], bbox[3] = bbox[0]/f_h, bbox[2]/f_h
+                    bbox = [bbox[0]/f_w, bbox[1]/f_h, bbox[2]/f_w, bbox[3]/f_h]
                     frame_bbox_flat += bbox
-                
-                print("Sennding to tcp client: {}".format(frame_bbox_flat))
                 try:
-                    # if len(frame_bbox_flat) == 0:
-                    #     frame_bbox_flat = [1,2,3,4]
+                    if not len(frame_bbox_flat) == 0:
+                        print("Sending {}".format(frame_bbox_flat))
                     self.tcp_client.SendBoundingBoxes(frame_bbox_flat)
                 except Exception as e:
                     print(e)
@@ -208,7 +205,7 @@ class Detector(object):
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--video_path",  default=0, help="Path to video or path to rtsp stream")
+    parser.add_argument("--video_path",  default="sample_videos/demo.mp4", help="Path to video or path to rtsp stream")
     parser.add_argument("--deepsort_checkpoint", type=str, default="deep_sort/deep/checkpoint/ckpt.t7")
     parser.add_argument("--proc_freq", type=int, default=3)
     parser.add_argument("--display",  action="store_true",help="To display on cv window")
@@ -221,7 +218,6 @@ def parse_args():
     parser.add_argument("--supress_verbose", action="store_true", help="Supress print statements ")
     parser.add_argument("--tcp_ip_port", type=str, help="IP:PORT of tcp server", default=None)
     parser.add_argument("--save_frames_to",default=None, type=str)
-    # parser.add_argument("--save_json")
     return parser.parse_args()
 
 
