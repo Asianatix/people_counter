@@ -211,7 +211,7 @@ def parse_args():
     parser.add_argument("--display",  action="store_true",help="To display on cv window")
     parser.add_argument("--save_video_to", type=str, default=None, help="Save path to video")
     parser.add_argument("--save_video_freq", type=int, default=100000, help="Save video at this number of frames")
-    parser.add_argument("--save_csv_path", default="demo.xlsx")
+    parser.add_argument("--save_csv_path", default=None)
     parser.add_argument("--people_count_thresh", default=5)
     parser.add_argument("--csv_save_freq", help="frequency in seconds with which the data will enter in csv", default=1)
     parser.add_argument("--use_cuda", type=str, default="True")
