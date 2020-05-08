@@ -21,12 +21,40 @@ from detectron2_detection import Detectron2
 from util import draw_bboxes, get_bbox_xywh
 import json 
 from TCP.TCPClient import TCPClient
+import queue, threading, time
+
+class VideoCapture:
+
+  def __init__(self, video_path):
+    self.cap = cv2.VideoCapture(video_path)
+    self.q = queue.Queue()
+    t = threading.Thread(target=self._reader)
+    t.daemon = True
+    t.start()
+
+  # read frames as soon as they are available, keeping only most recent one
+  def _reader(self):
+    self.fr_count = 0
+    while True:
+      ret, frame = self.cap.read()
+      self.fr_count += 1
+      if not ret:
+        break
+      if not self.q.empty():
+        try:
+          self.q.get_nowait()   # discard previous (unprocessed) frame
+        except queue.Empty:
+          pass
+      self.q.put(frame)
+
+  def read(self):
+    return self.q.get()
 
 class Detector(object):
     def __init__(self, args):
         self.args = args
         use_cuda = bool(strtobool(self.args.use_cuda))
-        self.vdo = cv2.VideoCapture()
+        
         self.detectron2 = Detectron2()
         self.deepsort = DeepSort(args.deepsort_checkpoint, use_cuda=use_cuda)
         if self.args.tcp_ip_port is not None:
@@ -44,14 +72,15 @@ class Detector(object):
         
     def __enter__(self):
      #   assert os.path.isfile(self.args.VIDEO_PATH), "Error: path error"
-        self.vdo.open(self.args.video_path)
+        self.vdo = VideoCapture(self.args.video_path)
+        #self.vdo.open(self.args.video_path)
         self.vd_name = os.path.basename(self.args.video_path)
-        self.im_width = int(self.vdo.get(cv2.CAP_PROP_FRAME_WIDTH))
-        self.im_height = int(self.vdo.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        self.im_width = int(self.vdo.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        self.im_height = int(self.vdo.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         if self.args.save_video_to:
             self._set_video_writer("{}/0_{}_{}".format(self.args.save_video_to,self.args.save_video_freq, self.vd_name))
 
-        assert self.vdo.isOpened()
+        assert self.vdo.cap.isOpened()
         return self
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
@@ -72,7 +101,7 @@ class Detector(object):
         df_list = []
         count_list = []
         try:
-            fps = int(self.vdo.get(cv2.CAP_PROP_FPS))
+            fps = int(self.vdo.cap.get(cv2.CAP_PROP_FPS))
         except:
             fps = None
             print("FPS not found in video meta data. Video path is not found or r rtsp stream  ")
@@ -88,9 +117,9 @@ class Detector(object):
         proc_total_time = 0.0
         init_time = time.time()
         bbox_cords_cpy = []
-        while self.vdo.grab():
+        while True:
             frame_start_time = time.time()
-            _, im = self.vdo.retrieve()
+            im = self.vdo.read()
             j_dict = self._get_frame_dict()
             j_dict["frame_id"] = self.frame_count
             f_h, f_w = im.shape[:2]
@@ -191,12 +220,16 @@ class Detector(object):
                 frame_time = (time.time() - frame_start_time)
                 nn_time = model_end_time - model_init_time
                 actual_fps =   self.frame_count // (time.time() - init_time)
-                print ("\t\tFrame:{} poeple_count:{} : crowd:{} Model_FPS:{} Actual_FPS:{} nn_time/avg:[{:.4f}/{:.4f}], frame_time/avg:[{:.4f}/{:.4f}]".format(
+                video_fps = self.vdo.fr_count // (time.time() - init_time)
+                print ("cap_frame:{} p_Frame:{} p_count:{} : crowd:{} M_FPS:{} cap_FPS:{:.4f} Process_FPS:{} nn_time/avg:[{:.4f}/{:.4f}], frame_time/avg:[{:.4f}/{:.4f}]".format(
+                    self.vdo.fr_count,
                     self.frame_count,
                     ct,
                     crowd_flag,
                     model_avg_fps,
+                    video_fps, 
                     actual_fps,
+                    
                     nn_time,
                     model_avg_time,
                     frame_time,
