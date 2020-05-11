@@ -72,15 +72,21 @@ class Detector(object):
         
     def __enter__(self):
      #   assert os.path.isfile(self.args.VIDEO_PATH), "Error: path error"
-        self.vdo = VideoCapture(self.args.video_path)
-        #self.vdo.open(self.args.video_path)
+        if self.args.buffer_frames:
+           self.vdo = cv2.VideoCapture(self.args.video_path) 
+        else:
+
+            self.vdo = VideoCapture(self.args.video_path)
+            #self.vdo.open(self.args.video_path)
+            
+            self.im_width = int(self.vdo.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            self.im_height = int(self.vdo.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            assert self.vdo.cap.isOpened()
         self.vd_name = os.path.basename(self.args.video_path)
-        self.im_width = int(self.vdo.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        self.im_height = int(self.vdo.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         if self.args.save_video_to:
             self._set_video_writer("{}/0_{}_{}".format(self.args.save_video_to,self.args.save_video_freq, self.vd_name))
 
-        assert self.vdo.cap.isOpened()
+        #assert self.vdo.isOpened()
         return self
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
@@ -119,7 +125,10 @@ class Detector(object):
         bbox_cords_cpy = []
         while True:
             frame_start_time = time.time()
-            im = self.vdo.read()
+            if self.args.buffer_frames:
+                _, im = self.vdo.read()
+            else:
+                im = self.vdo.read()
             j_dict = self._get_frame_dict()
             j_dict["frame_id"] = self.frame_count
             f_h, f_w = im.shape[:2]
@@ -138,7 +147,9 @@ class Detector(object):
                 bbox_xcycwh, cls_conf, cls_ids = bbox_xcycwh_cpy, cls_conf_cpy, cls_ids_cpy 
 
             #Some persons are found
+            persons_found = False
             if bbox_xcycwh is not None and bbox_xcycwh != []:
+                
                 # select class person
                 mask = cls_ids == 0
                 bbox_xcycwh = bbox_xcycwh[mask]
@@ -156,10 +167,12 @@ class Detector(object):
                 else:
                     count_list.append(len(outputs))
                 if len(outputs) > 0:
+                    persons_found = True
                     bbox_xyxy = outputs[:, :4]
                     identities = outputs[:, -1]
                     bbox_xywh = get_bbox_xywh(bbox_xyxy, identities)
-                    bbox_cords_cpy = copy.deepcopy(bbox_xywh)
+                    #bbox_cords_cpy = copy.deepcopy(bbox_xywh)
+
                 # If display is true display to cv window.
                 if self.args.display or  self.args.save_video_to or (self.args.save_frames_to is not None):
                     if len(outputs) > 0:
@@ -200,14 +213,18 @@ class Detector(object):
             proc_total_time = proc_total_time + (time.time() - frame_start_time)
             
             if self.args.tcp_ip_port is not None:
+                
                 frame_bbox_flat = []
-                for bbox in bbox_cords_cpy:
-                    bbox = [bbox[0]/f_w, bbox[1]/f_h, bbox[2]/f_w, bbox[3]/f_h]
-                    frame_bbox_flat += bbox
+                if persons_found:
+                    bbox_cords_cpy = copy.deepcopy(bbox_xywh)
+                    for bbox in bbox_cords_cpy:
+                        print(bbox)
+                        bbox = [bbox[0]/f_w, bbox[1]/f_h, bbox[2]/f_w, bbox[3]/f_h]
+                        frame_bbox_flat += bbox
+                #self.tcp_client.SendBoundingBoxes(frame_bbox_flat)
                 try:
-                    if not len(frame_bbox_flat) == 0:
-                        print("Sending {}".format(frame_bbox_flat))
-                    self.tcp_client.SendBoundingBoxes(frame_bbox_flat)
+                    if len(frame_bbox_flat) >   0:
+                        self.tcp_client.SendBoundingBoxes(frame_bbox_flat)
                 except Exception as e:
                     print(e)
                     print("Unable to send data to TCP server")
@@ -220,9 +237,14 @@ class Detector(object):
                 frame_time = (time.time() - frame_start_time)
                 nn_time = model_end_time - model_init_time
                 actual_fps =   self.frame_count // (time.time() - init_time)
-                video_fps = self.vdo.fr_count // (time.time() - init_time)
+                if not self.args.buffer_frames:
+                    video_fps = self.vdo.fr_count // (time.time() - init_time)
+                    cap_f_count = self.vdo.fr_count
+                else:
+                    cap_f_count = self.frame_count
+                    video_fps = self.frame_count // (time.time() - init_time)
                 print ("cap_frame:{} p_Frame:{} p_count:{} : crowd:{} M_FPS:{} cap_FPS:{:.4f} Process_FPS:{} nn_time/avg:[{:.4f}/{:.4f}], frame_time/avg:[{:.4f}/{:.4f}]".format(
-                    self.vdo.fr_count,
+                    cap_f_count, 
                     self.frame_count,
                     ct,
                     crowd_flag,
@@ -239,8 +261,9 @@ class Detector(object):
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--video_path",  default="sample_videos/demo.mp4", help="Path to video or path to rtsp stream")
+    parser.add_argument("--buffer_frames", action="store_true")
     parser.add_argument("--deepsort_checkpoint", type=str, default="deep_sort/deep/checkpoint/ckpt.t7")
-    parser.add_argument("--proc_freq", type=int, default=3)
+    parser.add_argument("--proc_freq", type=int, default=1)
     parser.add_argument("--display",  action="store_true",help="To display on cv window")
     parser.add_argument("--save_video_to", type=str, default=None, help="Save path to video")
     parser.add_argument("--save_video_freq", type=int, default=100000, help="Save video at this number of frames")
@@ -258,3 +281,8 @@ if __name__ == "__main__":
     args = parse_args()
     with Detector(args) as det:
         det.detect()
+
+ #python  pc.py --tcp_ip_port 192.168.50.1:9999 --video_path rtsp://192.168.50.1:40000 --save_frames_to frames
+ #python  pc.py --tcp_ip_port 192.168.50.1:9999 --video_path rtsp://192.168.50.1:40000 --save_frames_to frame   --proc_freq 40
+
+ #python pc.py --display --tcp_ip_port 192.168.50.1:9999 --video_path /home/rajneesh/Downloads/all_ideaf_videos/03April202012_23_22_Raw.mp4
