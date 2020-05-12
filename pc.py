@@ -18,10 +18,11 @@ import cv2
 
 from deep_sort import DeepSort
 from detectron2_detection import Detectron2
-from util import draw_bboxes, get_bbox_xywh
+from util import draw_bboxes, get_bbox_xywh, agrregate_split_results, draw_bboxes_xywh
 import json 
 from TCP.TCPClient import TCPClient
 import queue, threading, time
+import math 
 
 class VideoCapture:
 
@@ -87,8 +88,43 @@ class Detector(object):
     def __exit__(self, exc_type, exc_value, exc_traceback):
         if exc_type:
             print(exc_type, exc_value, exc_traceback)
-
-    def detect(self):    
+            
+    def detect_im(self, im):
+        bbox_xcycwh, cls_conf, cls_ids = self.detectron2.detect(im)
+        
+        persons_count  = 0
+        # Some objects are found 
+        bbox_xywh = []
+        if bbox_xcycwh is not None and bbox_xcycwh != []:    
+            mask = cls_ids == 0
+            bbox_xcycwh = bbox_xcycwh[mask]
+            bbox_xcycwh[:, 3:] *= 1.2
+            cls_conf = cls_conf[mask]
+            outputs = self.deepsort.update_new(bbox_xcycwh, cls_conf, im)
+            persons_count = len(outputs)
+            if persons_count > 0:
+                bbox_xyxy = outputs[:, :4]
+                identities = outputs[:, -1]
+                bbox_xywh = get_bbox_xywh(bbox_xyxy, identities)
+        return bbox_xywh
+    
+    def split_detect(self, im):
+        h, w = im.shape[:2]
+        h_h = math.floor(h/2)
+        h_w = math.floor(w/2)
+        lt = im[:h_w, :h_h,]
+        rt = im[h_w:, :h_h,]
+        lb = im[:h_w, h_h:]
+        rb = im[h_w:, h_h:]
+        
+        lt_out = self.detect_im(lt)
+        rt_out = self.detect_im(rt)
+        lb_out = self.detect_im(lb)
+        rb_out = self.detect_im(rb)
+        bbox_xywh = agrregate_split_results([lt_out, rt_out, lb_out, rb_out], h_w, h_h)
+        return bbox_xywh
+                
+    def detect_video(self):    
         self.frame_count = 0
         self.processing_frame_count = 0
         persons_count = 0
@@ -114,33 +150,20 @@ class Detector(object):
             if (self.frame_count-1) % self.args.proc_freq == 0:
                 self.processing_frame_count += 1
                 model_init_time = time.time()
-                bbox_xcycwh, cls_conf, cls_ids = self.detectron2.detect(im)
+                if not self.args.split_detector:                
+                    bbox_xywh = self.detect_im(im)
+                else:
+                    bbox_xywh = self.split_detect(im)
                 model_end_time = time.time()
-                # bbox_xcycwh_cpy = copy.deepcopy(bbox_xcycwh)
-                # cls_conf_cpy = copy.deepcopy(cls_conf)
-                # cls_ids_cpy = copy.deepcopy(cls_ids)
-            
-                persons_count  = 0
-                # Some objects are found 
-                if bbox_xcycwh is not None and bbox_xcycwh != []:    
-                    mask = cls_ids == 0
-                    bbox_xcycwh = bbox_xcycwh[mask]
-                    bbox_xcycwh[:, 3:] *= 1.2
-                    cls_conf = cls_conf[mask]
-                    outputs = self.deepsort.update_new(bbox_xcycwh, cls_conf, im)
-                    persons_count = len(outputs)
-                    if persons_count > 0:
-                        bbox_xyxy = outputs[:, :4]
-                        identities = outputs[:, -1]
-                        bbox_xywh = get_bbox_xywh(bbox_xyxy, identities)    
-                        if self.args.display or  self.args.save_video_to or (self.args.save_frames_to is not None):    
-                            im = draw_bboxes(im, bbox_xyxy, identities)
+                persons_count = len(bbox_xywh)
+            if persons_count > 0 and (self.args.display or  self.args.save_video_to or (self.args.save_frames_to is not None)):    
+                im = draw_bboxes_xywh(im, bbox_xywh, None)
+                #im = draw_bboxes(im, bbox_xyxy, identities)
                             
             if self.args.display:
                 cv2.imshow("Live preview", im)
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
-    
             
             if self.args.save_video_to:
                 self.video_output.write(im)
@@ -149,7 +172,7 @@ class Detector(object):
                     print("Video saved")
                     self._set_video_writer("{}/{}_{}_{}".format(self.args.save_video_to, self.frame_count, self.frame_count + self.args.save_video_freq, self.vd_name))
                     
-            if self.args.save_frames_to is not None:
+            if self.args.save_frames_to is not None and persons_count > 0:
                 frame_path = "{}/{}.jpg".format(self.args.save_frames_to, self.frame_count)
                 print(frame_path)
                 cv2.imwrite(frame_path, im)
@@ -212,13 +235,15 @@ def parse_args():
     parser.add_argument("--supress_verbose", action="store_true", help="Supress print statements ")
     parser.add_argument("--tcp_ip_port", type=str, help="IP:PORT of tcp server", default=None)
     parser.add_argument("--save_frames_to",default=None, type=str)
+    parser.add_argument("--split_detector", action="store_true", help = "If set true, Splits the frame into 4 eqaul quadrants and aggregates the results at the end")
+    
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     args = parse_args()
     with Detector(args) as det:
-        det.detect()
+        det.detect_video()
 
  #python  pc.py --tcp_ip_port 192.168.50.1:9999 --video_path rtsp://192.168.50.1:40000 --save_frames_to frames
  #python  pc.py --tcp_ip_port 192.168.50.1:9999 --video_path rtsp://192.168.50.1:40000 --save_frames_to frame   --proc_freq 40

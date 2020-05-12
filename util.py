@@ -48,6 +48,30 @@ def draw_bboxes(img, bbox, identities=None, offset=(0,0)):
         area = h*w
         cv2.putText(img,"{}_{}_{}".format(area, h, w),(x1,y1+t_size[1]+4), cv2.FONT_HERSHEY_PLAIN, 2, [255,255,255], 2)
     return img
+def draw_bboxes_xywh(img, bbox_xy_wh, identities = None, offset=(0, 0)):
+
+    z = np.array(bbox_xy_wh)
+    z[:, 2] = z[:, 2] + z[:, 0]
+    z[:, 3] = z[:, 3] + z[:, 1]
+    bbox_xy_xy = z.tolist()
+    for i,box in enumerate(bbox_xy_xy):
+        x1,y1,x2,y2 = [int(i) for i in box]
+        x1 += offset[0]
+        x2 += offset[0]
+        y1 += offset[1]
+        y2 += offset[1]
+        # box text and bar
+        id = int(identities[i]) if identities is not None else 0    
+        color = COLORS_10[id%len(COLORS_10)]
+        label = '{}{:d}'.format("", id)
+        t_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_PLAIN, 2 , 2)[0]
+        cv2.rectangle(img,(x1, y1),(x2,y2),color,2)
+        # cv2.rectangle(img,(x1, y1),(x1+t_size[0]+3,y1+t_size[1]+4), color,-1)
+        h,w = abs(y1-y2), abs(x1-x2)
+        area = h*w
+        cv2.putText(img,"{}_{}_{}".format(area, h, w),(x1,y1+t_size[1]+4), cv2.FONT_HERSHEY_PLAIN, 2, [255,255,255], 2)
+    return img
+
 def get_bbox_xywh(bbox, identities, offset=(0, 0)):
     ret_boxes = []
     for i,box in enumerate(bbox):
@@ -69,6 +93,36 @@ def softmin(x):
     x_exp = np.exp(-x)
     return x_exp/x_exp.sum()
 
+
+def agrregate_split_results(split_frame_bbox_list, h_w, h_h):
+    bbox_xy_wh = []
+    lt_out, rt_out, lb_out, rb_out = split_frame_bbox_list
+    bbox_xy_wh += lt_out
+    if len(rt_out) > 0:
+        rt = np.array(rt_out)
+        x_c = rt[:, 0]
+        x_c = x_c + h_w
+        rt[:, 0] = x_c
+        bbox_xy_wh += rt.tolist()
+
+    if len(lb_out) > 0:
+        lb = np.array(lb_out)
+        x_c = lb[:, 1]
+        x_c = x_c + h_h
+        lb[:, 1] = x_c
+        bbox_xy_wh += lb.tolist()
+        
+    if len(rb_out) > 0:
+        rb = np.array(rb_out)
+        x_c = rb[:, 0]
+        x_c = x_c + h_w
+        rb[:, 0] = x_c
+        x_c = rb[:, 1]
+        x_c = x_c + h_h
+        rb[:, 1] = x_c
+        bbox_xy_wh += rb.tolist()
+    
+    return bbox_xy_wh
 
 
 if __name__ == '__main__':
