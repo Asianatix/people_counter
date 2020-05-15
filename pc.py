@@ -56,7 +56,7 @@ class Detector(object):
         self.args = args
         use_cuda = bool(strtobool(self.args.use_cuda))
         
-        self.detectron2 = Detectron2()
+        self.detectron2 = Detectron2(self.args.detectron_cfg, self.args.detectron_ckpt)
         self.deepsort = DeepSort(args.deepsort_checkpoint, use_cuda=use_cuda)
         if self.args.tcp_ip_port is not None:
             self._set_tcp_client()
@@ -69,7 +69,20 @@ class Detector(object):
 
     def _set_video_writer(self, video_path):
         fourcc = cv2.VideoWriter_fourcc(*'MJPG')
-        self.video_output = cv2.VideoWriter(video_path, fourcc, 20, (self.im_width, self.im_height))
+        if self.args.buffer_frames:
+            self.im_width = int(self.vdo.get(cv2.CAP_PROP_FRAME_WIDTH))
+            self.im_height = int(self.vdo.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            fps = 20
+        else:
+            try:
+                self.im_width = int(self.vdo.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                self.im_height = int(self.vdo.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                fps = 20
+            except Exception as e:
+                self.im_width = 1280
+                self.im_height = 786
+                fps = 20
+        self.video_output = cv2.VideoWriter(video_path, fourcc, fps, (self.im_width, self.im_height))
         
     def __enter__(self):
      #   assert os.path.isfile(self.args.VIDEO_PATH), "Error: path error"
@@ -141,7 +154,9 @@ class Detector(object):
             self.frame_count += 1
             
             if self.args.buffer_frames:
-                _, im = self.vdo.read()
+                flag, im = self.vdo.read()
+                if not flag:
+                    break
             else:
                 im = self.vdo.read()
                 
@@ -236,6 +251,8 @@ def parse_args():
     parser.add_argument("--tcp_ip_port", type=str, help="IP:PORT of tcp server", default=None)
     parser.add_argument("--save_frames_to",default=None, type=str)
     parser.add_argument("--split_detector", action="store_true", help = "If set true, Splits the frame into 4 eqaul quadrants and aggregates the results at the end")
+    parser.add_argument("--detectron_ckpt", help="Path to detectron checkpoint", default = "/data/surveillance_weights/visdrone_t1/model_0111599.pth")
+    parser.add_argument("--detectron_cfg", help ="path to detectron cfg", default = "/data/surveillance_weights/visdrone_t1/test.yaml")
     
     return parser.parse_args()
 

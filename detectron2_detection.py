@@ -10,11 +10,21 @@ from detectron2.config import get_cfg
 
 class Detectron2:
 
-    def __init__(self):
+    def __init__(self, cfg_path, weights_path):
         self.cfg = get_cfg()
-        self.cfg.merge_from_file("detectron2/configs/COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml")
+        
+        if cfg_path is None:
+            print("Getting default config path for detectron")
+            self.cfg.merge_from_file("detectron2/configs/COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml")
+        else:
+            self.cfg.merge_from_file(cfg_path)
         self.cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.5  # set threshold for this model
-        self.cfg.MODEL.WEIGHTS = "detectron2://COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x/137849600/model_final_f10217.pkl"
+        
+        if weights_path is None:
+            print("Getting default weights path for detectron ")
+            self.cfg.MODEL.WEIGHTS = "detectron2://COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x/137849600/model_final_f10217.pkl"
+        else:
+            self.cfg.MODEL.WEIGHTS = weights_path
         self.cfg.MODEL.DEVICE = "cuda"
         self.predictor = DefaultPredictor(self.cfg)
 
