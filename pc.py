@@ -25,8 +25,8 @@ import queue, threading, time
 import math 
 
 class VideoCapture:
-
-  def __init__(self, video_path):
+  def __init__(self, video_path, buffer_size = 3):
+    self.buffer_size = buffer_size
     self.cap = cv2.VideoCapture(video_path)
     self.q = queue.Queue()
     t = threading.Thread(target=self._reader)
@@ -37,19 +37,28 @@ class VideoCapture:
   def _reader(self):
     self.fr_count = 0
     while True:
+      time.sleep(0.04)
       ret, frame = self.cap.read()
       self.fr_count += 1
       if not ret:
         break
-      if not self.q.empty():
+      if self.q.qsize() >= self.buffer_size:
         try:
-          self.q.get_nowait()   # discard previous (unprocessed) frame
+          self.q.get_nowait()   # discard Last in frame (unprocessed) frame
         except queue.Empty:
           pass
-      self.q.put(frame)
+      self.q.put([self.fr_count, frame])
 
   def read(self):
-    return self.q.get()
+    frames_list = []
+    for i in range(self.buffer_size):
+        try:
+            f = self.q.get()
+            frames_list.append(f)
+        except queue.Empty:
+            break
+    return len(frames_list)>0, frames_list
+        
 
 class Detector(object):
     def __init__(self, args):
@@ -136,6 +145,18 @@ class Detector(object):
         rb_out = self.detect_im(rb)
         bbox_xywh = agrregate_split_results([lt_out, rt_out, lb_out, rb_out], h_w, h_h)
         return bbox_xywh
+    
+    def _get_latest_frames(self):
+        if self.args.buffer_frames:
+                flag, im = self.vdo.read()
+        else:
+            flag, im = self.vdo.read()
+            
+            for fr, _ in im:
+                print(fr)
+            _, im = im[-1]
+        return flag, im
+            
                 
     def detect_video(self):    
         self.frame_count = 0
@@ -153,12 +174,9 @@ class Detector(object):
             frame_start_time = time.time()
             self.frame_count += 1
             
-            if self.args.buffer_frames:
-                flag, im = self.vdo.read()
-                if not flag:
-                    break
-            else:
-                im = self.vdo.read()
+            flag, im = self._get_latest_frames()
+            if not flag:
+                break
                 
             f_h, f_w = im.shape[:2]
             

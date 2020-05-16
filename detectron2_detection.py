@@ -52,3 +52,41 @@ class Detectron2:
                 cls_ids.append(_class)
 
         return np.array(bbox_xcycwh, dtype=np.float64), np.array(cls_conf), np.array(cls_ids)
+
+    def detect_batch(self, imgs):
+        batch_outputs = self.predictor.predict_batch_images(imgs)
+        predictions = []
+        for outputs in batch_outputs:
+            boxes = outputs["instances"].pred_boxes.tensor.cpu().numpy()
+            classes = outputs["instances"].pred_classes.cpu().numpy()
+            scores = outputs["instances"].scores.cpu().numpy()
+
+            bbox_xcycwh, cls_conf, cls_ids = [], [], []
+
+            for (box, _class, score) in zip(boxes, classes, scores):
+
+                if _class >= 0:
+                    x0, y0, x1, y1 = box
+                    bbox_xcycwh.append([(x1 + x0) / 2, (y1 + y0) / 2, (x1 - x0), (y1 - y0)])
+                    cls_conf.append(score)
+                    cls_ids.append(_class)
+            predictions += [np.array(bbox_xcycwh, dtype=np.float64), np.array(cls_conf), np.array(cls_ids)]
+        return predictions
+    
+
+if __name__ == "__main__":
+    import cv2
+    im1 = cv2.imread("images/1.jpg")
+    im2 = cv2.imread("images/2.jpg")
+    imgs = [im1, im1, im1, im1]
+    imgs = [im1]
+    d = Detectron2(None, None)
+    import time
+    i = time.time()
+    for im in imgs:
+        d.detect(im)
+    e = time.time()
+    x = d.detect_batch(imgs)
+    z = time.time()
+    print("BATCH:{} individual:{}".format(e - i, z - e))
+    
