@@ -53,8 +53,12 @@ class Detectron2:
 
         return np.array(bbox_xcycwh, dtype=np.float64), np.array(cls_conf), np.array(cls_ids)
 
-    def detect_batch(self, imgs):
+    def detect_batch(self, imgs, apply_nms_batch = False):
         batch_outputs = self.predictor.predict_batch_images(imgs)
+        
+        if apply_nms_batch:
+            pass
+        
         predictions = []
         for outputs in batch_outputs:
             boxes = outputs["instances"].pred_boxes.tensor.cpu().numpy()
@@ -70,23 +74,37 @@ class Detectron2:
                     bbox_xcycwh.append([(x1 + x0) / 2, (y1 + y0) / 2, (x1 - x0), (y1 - y0)])
                     cls_conf.append(score)
                     cls_ids.append(_class)
-            predictions += [np.array(bbox_xcycwh, dtype=np.float64), np.array(cls_conf), np.array(cls_ids)]
+            predictions.append([np.array(bbox_xcycwh, dtype=np.float64), np.array(cls_conf), np.array(cls_ids)])
         return predictions
     
 
+    def detect_batch_simple(self, imgs, apply_filtering_batch = False):
+        batch_outputs = self.predictor.predict_batch_images(imgs)
+        
+        if apply_filtering_batch:
+            pass
+        
+        predictions = []
+        for outputs in batch_outputs:
+            boxes = outputs["instances"].pred_boxes.tensor.cpu().numpy()
+            classes = outputs["instances"].pred_classes.cpu().numpy()
+            scores = outputs["instances"].scores.cpu().numpy()
+            predictions.append([boxes, scores, classes])
+        return predictions
+    
 if __name__ == "__main__":
     import cv2
-    im1 = cv2.imread("images/1.jpg")
-    im2 = cv2.imread("images/2.jpg")
-    imgs = [im1, im1, im1, im1]
-    imgs = [im1]
-    d = Detectron2(None, None)
     import time
-    i = time.time()
-    for im in imgs:
-        d.detect(im)
-    e = time.time()
-    x = d.detect_batch(imgs)
-    z = time.time()
-    print("BATCH:{} individual:{}".format(e - i, z - e))
+    d = Detectron2(None, None)
+    from util import VideoCapture
+    cap = VideoCapture("../sample_videos/demo_2_40s.mp4", buffer_size= 3)
+    while True:
+        f, ims = cap.read()
+        b_outs = d.detect_batch(ims)
+        
+        
+        
+    
+    
+    
     

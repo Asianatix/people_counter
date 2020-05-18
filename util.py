@@ -1,5 +1,6 @@
 import numpy as np
 import cv2
+import queue, threading, time
 
 COLORS_10 =[(144,238,144),(178, 34, 34),(221,160,221),(  0,255,  0),(  0,128,  0),(210,105, 30),(220, 20, 60),
             (192,192,192),(255,228,196),( 50,205, 50),(139,  0,139),(100,149,237),(138, 43,226),(238,130,238),
@@ -67,9 +68,9 @@ def draw_bboxes_xywh(img, bbox_xy_wh, identities = None, offset=(0, 0)):
         t_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_PLAIN, 2 , 2)[0]
         cv2.rectangle(img,(x1, y1),(x2,y2),color,2)
         # cv2.rectangle(img,(x1, y1),(x1+t_size[0]+3,y1+t_size[1]+4), color,-1)
-        h,w = abs(y1-y2), abs(x1-x2)
-        area = h*w
-        cv2.putText(img,"{}_{}_{}".format(area, h, w),(x1,y1+t_size[1]+4), cv2.FONT_HERSHEY_PLAIN, 2, [255,255,255], 2)
+        # h,w = abs(y1-y2), abs(x1-x2)
+        # area = h*w
+        #cv2.putText(img,"{}_{}_{}".format(area, h, w),(x1,y1+t_size[1]+4), cv2.FONT_HERSHEY_PLAIN, 2, [255,255,255], 2)
     return img
 
 def get_bbox_xywh(bbox, identities, offset=(0, 0)):
@@ -123,6 +124,53 @@ def agrregate_split_results(split_frame_bbox_list, h_w, h_h):
         bbox_xy_wh += rb.tolist()
     
     return bbox_xy_wh
+
+class VideoCapture:
+    def __init__(self, video_path, buffer_size = 3, real_time = True):
+        self.buffer_size = buffer_size
+        self.cap = cv2.VideoCapture(video_path)
+        self.real_time = real_time
+        if self.real_time:
+            self.q = queue.Queue()
+            t = threading.Thread(target=self._reader)
+            t.daemon = True
+            t.start()
+        self.fr_count = 0
+  # read frames as soon as they are available, keeping only most recent one
+    def _reader(self):
+        while True:        
+            ret, frame = self.cap.read()
+            if not ret:
+                break
+            self.fr_count += 1
+            if self.q.qsize() >= self.buffer_size:
+                try:
+                    self.q.get_nowait()   # discard LastIn frame (unprocessed) frame
+                except queue.Empty:
+                    pass
+            self.q.put([self.fr_count, frame])
+            time.sleep(0.04)
+
+    def read(self):
+        frames_list = []
+        # if real-time read and remove latest buffered frames
+        if self.real_time:
+            for i in range(self.buffer_size):
+                try:
+                    f = self.q.get()
+                    frames_list.append(f)
+                except queue.Empty:
+                    break
+        # read next buffer size frames.
+        else:
+            for i in range(self.buffer_size):
+                ret, frame = self.cap.read()
+                if not ret:
+                    break
+                self.fr_count += 1
+                frames_list.append([self.fr_count, frame])
+        return len(frames_list)>0, frames_list
+
 
 
 if __name__ == '__main__':

@@ -1,0 +1,21 @@
+{
+    "configurations": [
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": [
+                "--video_path",
+                "../sample_videos/demo_2_40s.mp4",
+                "--save_video_to",
+                "../sample_videos/results",
+                // "--buffer_frames",
+                "--capture_buffer_length",
+                "25"
+            ],
+            "justMyCode": false
+        }
+    ]
+}

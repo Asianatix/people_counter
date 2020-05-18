@@ -1,3 +1,4 @@
 {
-    "python.pythonPath": "/home/rajneesh/anaconda3/envs/pc/bin/python"
+    "python.pythonPath": "/nfs/gpu14_datasets/conda_envs/vikash/miniconda3/envs/mydetectorn/bin/python",
+    "python.linting.enabled": true
 }
