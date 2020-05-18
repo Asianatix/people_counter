@@ -83,6 +83,15 @@ def get_bbox_xywh(bbox, identities, offset=(0, 0)):
         x,y,w,h = x1, y1, abs(x2-x1), abs(y2-y1)
         ret_boxes.append([x, y, w, h])
     return ret_boxes
+
+def bboxy_cxywh_xywh(bbox):
+    ret_boxes = []
+    for box in bbox:
+        cx1,cy1,w,h = [int(i) for i in box]
+        x1, y1 = int(cx1 - w/2),int(cy1 - h/2) 
+        ret_boxes.append([x1, y1, w, h])
+    return ret_boxes
+
 def softmax(x):
     assert isinstance(x, np.ndarray), "expect x be a numpy array"
     x_exp = np.exp(x*5)
