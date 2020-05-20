@@ -49,28 +49,29 @@ def draw_bboxes(img, bbox, identities=None, offset=(0,0)):
         area = h*w
         cv2.putText(img,"{}_{}_{}".format(area, h, w),(x1,y1+t_size[1]+4), cv2.FONT_HERSHEY_PLAIN, 2, [255,255,255], 2)
     return img
-def draw_bboxes_xywh(img, bbox_xy_wh, identities = None, offset=(0, 0)):
 
-    z = np.array(bbox_xy_wh)
-    z[:, 2] = z[:, 2] + z[:, 0]
-    z[:, 3] = z[:, 3] + z[:, 1]
-    bbox_xy_xy = z.tolist()
-    for i,box in enumerate(bbox_xy_xy):
-        x1,y1,x2,y2 = [int(i) for i in box]
-        x1 += offset[0]
-        x2 += offset[0]
-        y1 += offset[1]
-        y2 += offset[1]
-        # box text and bar
-        id = int(identities[i]) if identities is not None else 0    
-        color = COLORS_10[id%len(COLORS_10)]
-        label = '{}{:d}'.format("", id)
-        t_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_PLAIN, 2 , 2)[0]
-        cv2.rectangle(img,(x1, y1),(x2,y2),color,2)
-        # cv2.rectangle(img,(x1, y1),(x1+t_size[0]+3,y1+t_size[1]+4), color,-1)
-        # h,w = abs(y1-y2), abs(x1-x2)
-        # area = h*w
-        #cv2.putText(img,"{}_{}_{}".format(area, h, w),(x1,y1+t_size[1]+4), cv2.FONT_HERSHEY_PLAIN, 2, [255,255,255], 2)
+def draw_bboxes_xywh(img, bbox_xy_whs, identities = None, offset=(0, 0)):
+    for bbox_xy_wh in bbox_xy_whs:
+        z = np.array(bbox_xy_wh)
+        z[:, 2] = z[:, 2] + z[:, 0]
+        z[:, 3] = z[:, 3] + z[:, 1]
+        bbox_xy_xy = z.tolist()
+        for i,box in enumerate(bbox_xy_xy):
+            x1,y1,x2,y2 = [int(i) for i in box]
+            x1 += offset[0]
+            x2 += offset[0]
+            y1 += offset[1]
+            y2 += offset[1]
+            # box text and bar
+            id = int(identities[i]) if identities is not None else 0    
+            color = COLORS_10[id%len(COLORS_10)]
+            label = '{}{:d}'.format("", id)
+            cv2.rectangle(img,(x1, y1),(x2,y2),color,2)
+            #t_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_PLAIN, 2 , 2)[0]
+            # cv2.rectangle(img,(x1, y1),(x1+t_size[0]+3,y1+t_size[1]+4), color,-1)
+            # h,w = abs(y1-y2), abs(x1-x2)
+            # area = h*w
+            #cv2.putText(img,"{}_{}_{}".format(area, h, w),(x1,y1+t_size[1]+4), cv2.FONT_HERSHEY_PLAIN, 2, [255,255,255], 2)
     return img
 
 def get_bbox_xywh(bbox, identities, offset=(0, 0)):
@@ -84,6 +85,13 @@ def get_bbox_xywh(bbox, identities, offset=(0, 0)):
         x,y,w,h = x1, y1, abs(x2-x1), abs(y2-y1)
         ret_boxes.append([x, y, w, h])
     return ret_boxes
+
+def bbox_cxywh_xywh(bbox):
+    if len(bbox) == 0:
+         return bbox
+    bbox[:,0] = bbox[:,0] - bbox[:,2]/2
+    bbox[:,1] = bbox[:,1] - bbox[:,3]/2
+    return bbox
 def softmax(x):
     assert isinstance(x, np.ndarray), "expect x be a numpy array"
     x_exp = np.exp(x*5)

@@ -15,7 +15,7 @@ import numpy as np
 import cv2
 from deep_sort import DeepSort
 from detectron2_detection import Detectron2
-from util import draw_bboxes, get_bbox_xywh, agrregate_split_results, draw_bboxes_xywh, VideoCapture
+from util import draw_bboxes, get_bbox_xywh, agrregate_split_results, draw_bboxes_xywh, VideoCapture, bbox_cxywh_xywh
 import json 
 from TCP.TCPClient import TCPClient
 import queue, threading, time
@@ -28,7 +28,8 @@ class Detector(object):
         use_cuda = bool(strtobool(self.args.use_cuda))
         
         self.detectron2 = Detectron2(self.args.detectron_cfg, self.args.detectron_ckpt)
-        self.deepsort = DeepSort(args.deepsort_checkpoint, use_cuda=use_cuda)
+        if self.args.deep_sort:
+            self.deepsort = DeepSort(args.deepsort_checkpoint, use_cuda=use_cuda)
         
     def _set_tcp_client(self):
         ip, port = self.args.tcp_ip_port.strip().split(':')
@@ -70,12 +71,12 @@ class Detector(object):
         filtered_ims = [im_list[0], im_list[c], im_list[-1]]
         return filtered_ims
     
-    def detect_im(self, im, apply_nms_batch = False):
+    def detect_im(self, im, apply_batch_ensemble = False):
         
         if not isinstance(im, list):
             im = [im]
         
-        batch_outs = self.detectron2.detect_batch(im, apply_nms_batch)
+        batch_outs = self.detectron2.detect_batch(im, apply_batch_ensemble)
         final_bbox_xywh = []
         for idx, each_im_ouputs in enumerate(batch_outs):
             bbox_xcycwh, cls_conf, cls_ids = each_im_ouputs
@@ -87,37 +88,26 @@ class Detector(object):
                 bbox_xcycwh = bbox_xcycwh[mask]
                 bbox_xcycwh[:, 3:] *= 1.2
                 cls_conf = cls_conf[mask]
-                outputs = self.deepsort.update_new(bbox_xcycwh, cls_conf, im[idx])
-                persons_count = len(outputs)
-                if persons_count > 0:
-                    bbox_xyxy = outputs[:, :4]
-                    identities = outputs[:, -1]
-                    bbox_xywh = get_bbox_xywh(bbox_xyxy, identities)
-                    final_bbox_xywh = bbox_xywh
+                if self.args.deep_sort:
+                    outputs = self.deepsort.update_new(bbox_xcycwh, cls_conf, im[idx])
+                    persons_count = len(outputs)
+                    if persons_count > 0:
+                        bbox_xyxy = outputs[:, :4]
+                        identities = outputs[:, -1]
+                        bbox_xywh = get_bbox_xywh(bbox_xyxy, identities)
+                        final_bbox_xywh.append(bbox_xywh)
+                else:
+                    bbox_xywh = bbox_cxywh_xywh(bbox_xcycwh)
+                    final_bbox_xywh.append(bbox_xywh)
         return final_bbox_xywh
     
-    def split_detect(self, im):
-        h, w = im.shape[:2]
-        h_h = math.floor(h/2)
-        h_w = math.floor(w/2)
-        lt = im[:h_w, :h_h,]
-        rt = im[h_w:, :h_h,]
-        lb = im[:h_w, h_h:]
-        rb = im[h_w:, h_h:]
-        
-        lt_out = self.detect_im(lt)
-        rt_out = self.detect_im(rt)
-        lb_out = self.detect_im(lb)
-        rb_out = self.detect_im(rb)
-        bbox_xywh = agrregate_split_results([lt_out, rt_out, lb_out, rb_out], h_w, h_h)
-        return bbox_xywh
     
     def _get_latest_frames(self, filter_policy = None):
         
         flag, im = self.vdo.read()
         assert isinstance(im, list)
         if not self.args.supress_verbose:
-            print("video_frames collected  for processing: {}".format([x[0] for x in im]))
+            print("video_frame ids collected for processing: {}".format([x[0] for x in im]))
         im = [x[1] for x in im]
         if len(im) > 1:
             init_l = len(im)
@@ -151,17 +141,14 @@ class Detector(object):
             
             if (self.frame_count-1) % self.args.proc_freq == 0:
                 self.processing_frame_count += len(imgs)
-                model_init_time = time.time()
-                if not self.args.split_detector:                
-                    bbox_xywh = self.detect_im(imgs, self.args.apply_nms_batch)
-                else:
-                    bbox_xywh = self.split_detect(imgs)
+                model_init_time = time.time()                
+                bbox_xywhs = self.detect_im(imgs, self.args.apply_batch_ensemble)
                 model_end_time = time.time()
-                persons_count = len(bbox_xywh)
+                persons_count = len(bbox_xywhs[-1])
             im = imgs[-1]
             if persons_count > 0 and (self.args.display or  self.args.save_video_to or (self.args.save_frames_to is not None)):
                 
-                im = draw_bboxes_xywh(im, bbox_xywh, None)
+                im = draw_bboxes_xywh(im, bbox_xywhs, None)
                 #im = draw_bboxes(im, bbox_xyxy, identities)
             if self.args.display:
                 cv2.imshow("Live preview", im)
@@ -183,13 +170,13 @@ class Detector(object):
             proc_total_time = proc_total_time + (time.time() - frame_start_time)
             
             if self.args.tcp_ip_port is not None:
-                
                 frame_bbox_flat = []
                 if persons_count > 0:
-                    for bbox in bbox_xywh:
-                        print(bbox)
-                        bbox_ = [bbox[0]/f_w, bbox[1]/f_h, bbox[2]/f_w, bbox[3]/f_h]
-                        frame_bbox_flat += bbox_
+                    for bbox_xywh in bbox_xywhs:
+                        for bbox in bbox_xywh:
+                            print(bbox)
+                            bbox_ = [bbox[0]/f_w, bbox[1]/f_h, bbox[2]/f_w, bbox[3]/f_h]
+                            frame_bbox_flat += bbox_
                 try:
                     if len(frame_bbox_flat) >  0:
                         self.tcp_client.SendBoundingBoxes(frame_bbox_flat)
@@ -244,7 +231,8 @@ def parse_args():
     parser.add_argument("--detectron_ckpt", help="Path to detectron checkpoint", default = "/data/surveillance_weights/visdrone_t1/model_0111599.pth")
     parser.add_argument("--detectron_cfg", help ="path to detectron cfg", default = "/data/surveillance_weights/visdrone_t1/test.yaml")
     parser.add_argument("--buffer_filter_policy", type = str, default = "default")
-    parser.add_argument("--apply_nms_batch", action="store_true", help="Applies nms on predictions made on batch")
+    parser.add_argument("--apply_batch_ensemble", action="store_true", help="Applies nms on predictions made on batch")
+    parser.add_argument("--deep_sort", action="store_true", help="Using deep sort to track people.")
     
     return parser.parse_args()
 

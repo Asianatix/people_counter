@@ -16,6 +16,24 @@
                 "25"
             ],
             "justMyCode": false
+        },
+        {
+            "name": "Python: PC-cap-buffer-25",
+            "type": "python",
+            "request": "launch",
+            "program": "/mnt/nfshome1/FRACTAL/vikash.challa/BMC/iff/people_counter/pc.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--video_path",
+                "../sample_videos/demo_2_40s.mp4",
+                "--save_video_to",
+                "../sample_videos/results",
+                "--capture_buffer_length",
+                "1",
+                "--save_frames_to",
+                "./frames"
+            ],
+            "justMyCode": false
         }
     ]
 }
