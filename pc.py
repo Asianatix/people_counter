@@ -20,7 +20,7 @@ import json
 from TCP.TCPClient import TCPClient
 import queue, threading, time
 import math 
-
+from tqdm import tqdm 
 class Detector(object):
     def __init__(self, args):
         self.args = args
@@ -129,12 +129,13 @@ class Detector(object):
         proc_avg_time = 0.0
         proc_total_time = 0.0
         init_time = time.time()
-        
+        pbar = tqdm(total=self.vdo.total_frames)
         while True:
             frame_start_time = time.time()
         
             flag, imgs = self._get_latest_frames(filter_policy=self.args.buffer_filter_policy)
             self.frame_count += len(imgs)
+            
             if not flag:
                 break
             f_h, f_w = imgs[0].shape[:2]
@@ -184,7 +185,7 @@ class Detector(object):
                     print(e)
                     print("Unable to send data to TCP server")
 
-
+            pbar.update(self.vdo.fr_count)
             if not self.args.supress_verbose:
                 
                 model_avg_fps = self.frame_count // proc_total_time
@@ -230,7 +231,7 @@ def parse_args():
     parser.add_argument("--split_detector", action="store_true", help = "<Not supported> If set true, Splits the frame into 4 eqaul quadrants and aggregates the results at the end")
     parser.add_argument("--detectron_ckpt", help="Path to detectron checkpoint", default = "/data/surveillance_weights/visdrone_t1/model_0111599.pth")
     parser.add_argument("--detectron_cfg", help ="path to detectron cfg", default = "/data/surveillance_weights/visdrone_t1/test.yaml")
-    parser.add_argument("--buffer_filter_policy", type = str, default = "default")
+    parser.add_argument("--buffer_filter_policy", type = str, default = None)
     parser.add_argument("--apply_batch_ensemble", action="store_true", help="Applies nms on predictions made on batch")
     parser.add_argument("--deep_sort", action="store_true", help="Using deep sort to track people.")
     

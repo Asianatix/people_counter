@@ -144,6 +144,10 @@ class VideoCapture:
             t.daemon = True
             t.start()
         self.fr_count = 0
+        try:
+            self.total_frames = self.get(cv2.CAP_PROP_FRAME_COUNT)
+        except Exception as e:
+            self.total_frames = 1000000
   # read frames as soon as they are available, keeping only most recent one
     def _reader(self):
         while True:        
