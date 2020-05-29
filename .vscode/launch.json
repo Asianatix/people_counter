@@ -1,5 +1,6 @@
 {
     "configurations": [
+        
         {
             "name": "Python: Current File",
             "type": "python",
@@ -9,7 +10,7 @@
         },
         
         {
-            "name": "Python: PC-cap-buffer-25",
+            "name": "Python: PC-cap-buffer-1",
             "type": "python",
             "request": "launch",
             "program": "/mnt/nfshome1/FRACTAL/vikash.challa/BMC/iff/people_counter/pc.py",
@@ -22,7 +23,9 @@
                 "--capture_buffer_length",
                 "1",
                 "--save_frames_to",
-                "./frames"
+                "./frames",
+                "--deep_sort"
+
             ],
             "justMyCode": false
         }

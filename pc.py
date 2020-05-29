@@ -75,20 +75,19 @@ class Detector(object):
         
         if not isinstance(im, list):
             im = [im]
-        
         batch_outs = self.detectron2.detect_batch(im, apply_batch_ensemble)
         final_bbox_xywh = []
         for idx, each_im_ouputs in enumerate(batch_outs):
             bbox_xcycwh, cls_conf, cls_ids = each_im_ouputs
-            persons_count  = 0
             # Some objects are found 
             bbox_xywh = []
             if bbox_xcycwh is not None and bbox_xcycwh != []:    
                 mask = cls_ids == 0
                 bbox_xcycwh = bbox_xcycwh[mask]
-                bbox_xcycwh[:, 3:] *= 1.2
                 cls_conf = cls_conf[mask]
+                persons_count_before_track  = len(bbox_xcycwh)
                 if self.args.deep_sort:
+                    bbox_xcycwh[:, 3:] *= 1.2
                     outputs = self.deepsort.update_new(bbox_xcycwh, cls_conf, im[idx])
                     persons_count = len(outputs)
                     if persons_count > 0:
@@ -96,6 +95,7 @@ class Detector(object):
                         identities = outputs[:, -1]
                         bbox_xywh = get_bbox_xywh(bbox_xyxy, identities)
                         final_bbox_xywh.append(bbox_xywh)
+                    print("# of persons filter from  {} -> {}  after tracking".format(persons_count_before_track,  persons_count))
                 else:
                     bbox_xywh = bbox_cxywh_xywh(bbox_xcycwh)
                     final_bbox_xywh.append(bbox_xywh)
@@ -114,7 +114,7 @@ class Detector(object):
             if filter_policy is not None:
                 im = self.filter_imgs_buffer(im)
             if not self.args.supress_verbose:
-                print("Only processing {} out of {} latest_frames".format(len(im), init_l))
+                print("Only processing {} out of {} captured frames".format(len(im), init_l))
         return flag, im
             
                 
@@ -129,15 +129,15 @@ class Detector(object):
         proc_avg_time = 0.0
         proc_total_time = 0.0
         init_time = time.time()
-        pbar = tqdm(total=self.vdo.total_frames)
+        
         while True:
             frame_start_time = time.time()
         
             flag, imgs = self._get_latest_frames(filter_policy=self.args.buffer_filter_policy)
-            self.frame_count += len(imgs)
-            
             if not flag:
                 break
+            
+            self.frame_count += len(imgs)
             f_h, f_w = imgs[0].shape[:2]
             
             if (self.frame_count-1) % self.args.proc_freq == 0:
@@ -145,12 +145,14 @@ class Detector(object):
                 model_init_time = time.time()                
                 bbox_xywhs = self.detect_im(imgs, self.args.apply_batch_ensemble)
                 model_end_time = time.time()
-                persons_count = len(bbox_xywhs[-1])
+                persons_count = 0
+                if len(bbox_xywhs)>0:
+                    persons_count = len(bbox_xywhs[-1])
+                    
             im = imgs[-1]
-            if persons_count > 0 and (self.args.display or  self.args.save_video_to or (self.args.save_frames_to is not None)):
-                
+            if persons_count > 0 and (self.args.display or  self.args.save_video_to or (self.args.save_frames_to is not None)):                
                 im = draw_bboxes_xywh(im, bbox_xywhs, None)
-                #im = draw_bboxes(im, bbox_xyxy, identities)
+
             if self.args.display:
                 cv2.imshow("Live preview", im)
                 if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -185,7 +187,6 @@ class Detector(object):
                     print(e)
                     print("Unable to send data to TCP server")
 
-            pbar.update(self.vdo.fr_count)
             if not self.args.supress_verbose:
                 
                 model_avg_fps = self.frame_count // proc_total_time
@@ -218,7 +219,7 @@ def parse_args():
                                                                      discards all frames that got captured while nn process isn't ready to accept.\
                                                                 default behaviour is to  never discards any frame and\
                                                                      while nn process is ready reads the next <capture_buffer_length> ")
-    parser.add_argument("--capture_buffer_length",type=int, default=1, help="Size of video capture buffer")
+    parser.add_argument("--capture_buffer_length",type=int, default=1, help="Size of video capture buffer. This should be used in conjunction with real_time")
     parser.add_argument("--deepsort_checkpoint", type=str, default="deep_sort/deep/checkpoint/ckpt.t7")
     parser.add_argument("--proc_freq", type=int, default=1, help="Frequency at which nn model process  frames_list captured from video capture buffer.")
     parser.add_argument("--display",  action="store_true",help="To display on cv window")
@@ -227,12 +228,12 @@ def parse_args():
     parser.add_argument("--use_cuda", type=str, default="True")
     parser.add_argument("--supress_verbose", action="store_true", help="Supress print statements ")
     parser.add_argument("--tcp_ip_port", type=str, help="IP:PORT of tcp server", default=None)
-    parser.add_argument("--save_frames_to",default=None, type=str, help = "set this to path to save predicted frames to be saved")
-    parser.add_argument("--split_detector", action="store_true", help = "<Not supported> If set true, Splits the frame into 4 eqaul quadrants and aggregates the results at the end")
+    parser.add_argument("--save_frames_to",default=None, type=str, help = "set this to path, to save predicted frames to be saved")
     parser.add_argument("--detectron_ckpt", help="Path to detectron checkpoint", default = "/data/surveillance_weights/visdrone_t1/model_0111599.pth")
     parser.add_argument("--detectron_cfg", help ="path to detectron cfg", default = "/data/surveillance_weights/visdrone_t1/test.yaml")
-    parser.add_argument("--buffer_filter_policy", type = str, default = None)
-    parser.add_argument("--apply_batch_ensemble", action="store_true", help="Applies nms on predictions made on batch")
+    parser.add_argument("--buffer_filter_policy", type = str, default = None, help="This should be used only when captured buffer length > 3 frames.")
+    parser.add_argument("--apply_batch_ensemble", action="store_true", help="Applies nms on predictions made on batch.\
+                                                                            In conjunction with capture buffer length.")
     parser.add_argument("--deep_sort", action="store_true", help="Using deep sort to track people.")
     
     return parser.parse_args()

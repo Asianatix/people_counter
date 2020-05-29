@@ -10,6 +10,7 @@ from torchvision.ops.boxes import box_iou, nms
 import torch 
 import warnings
 warnings.filterwarnings("ignore",category=DeprecationWarning)
+import copy
 
 
 class Detectron2:
@@ -22,7 +23,8 @@ class Detectron2:
             self.cfg.merge_from_file("detectron2/configs/COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml")
         else:
             self.cfg.merge_from_file(cfg_path)
-        self.cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.5  # set threshold for this model
+        self.cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.5  # Set min conf threshold
+        self.cfg.MODEL.ROI_HEADS.NMS_THRESH_TEST = 0.7 
         
         if weights_path is None:
             print("Getting default weights path for detectron ")
@@ -31,6 +33,7 @@ class Detectron2:
             self.cfg.MODEL.WEIGHTS = weights_path
         self.cfg.MODEL.DEVICE = "cuda"
         self.predictor = DefaultPredictor(self.cfg)
+        self.batch_ensemble_thresh = 0.3
 
     def bbox(self, img):
         rows = np.any(img, axis=1)
@@ -129,11 +132,14 @@ if __name__ == "__main__":
     from argparse import ArgumentParser
     p = ArgumentParser()
     p.add_argument("--vpath", default="../sample_videos/demo_2_40s.mp4")
+    p.add_argument("--imp", default=None)
+    p.add_argument("-wp", "--weight_path", default="/nfs/gpu14_datasets/surveillance_weights/visdrone_t1/model_0111599.pth")
+    p.add_argument("-cp", "--cfg_path", default="/nfs/gpu14_datasets/surveillance_weights/visdrone_t1/test.yaml")
     args = p.parse_args()
     v_path = args.vpath
     
-    w_p = "/nfs/gpu14_datasets/surveillance_weights/visdrone_t1/model_0111599.pth"
-    cfg_p = "/nfs/gpu14_datasets/surveillance_weights/visdrone_t1/test.yaml"
+    w_p = args.weight_path
+    cfg_p = args.cfg_path
     d = Detectron2(cfg_p, w_p)
     
     save_folder = "/mnt/nfshome1/FRACTAL/vikash.challa/BMC/iff/people_counter/frames"
@@ -142,6 +148,16 @@ if __name__ == "__main__":
     
     print(v_path)
     cap = cv2.VideoCapture(v_path)
+    fourcc = cv2.VideoWriter_fourcc(*'MJPG')
+    try:
+        im_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        im_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        fps = 20
+    except Exception as e:
+        im_width = 1280
+        im_height = 786
+        fps = 20
+    video_output = cv2.VideoWriter("/data/temp/sample.mp4", fourcc, fps, (im_width*2, im_height))
     assert cap.isOpened()
     frame_count = 100000
     def get_3_frames():
@@ -152,15 +168,18 @@ if __name__ == "__main__":
                 ret_frames.append(im)
         return ret_frames
     from util import bbox_cxywh_xywh, draw_bboxes_xywh
-    # f_p = open("{}/{}".format(s_r, os.path.basename(v_path).replace(".mp4", ".csv")), 'w')
-    # f_p.write("Imagename, AGL, SLR, MSL, MSL, TLT, FOV\n")
-    
+    count = 0
     while True:
         ims = get_3_frames()
         frame_count += len(ims)
         if len(ims) < 1:
             break
-        b_outs = d.detect_batch(ims, apply_batch_ensemble=True)
+        b_outs_e = d.detect_batch(ims, apply_batch_ensemble=True)
+        b_outs = d.detect_batch(ims, apply_batch_ensemble=False)
+        
+        s_ims = ims
+        e_ims = [copy.deepcopy(i) for i in ims]
+        
         
         for idx, each_im_ouputs in enumerate(b_outs):
             bbox_xcycwh, cls_conf, cls_ids = each_im_ouputs
@@ -173,15 +192,34 @@ if __name__ == "__main__":
                 bbox_xcycwh[:, 3:] *= 1.2
                 cls_conf = cls_conf[mask]
                 persons_count = len(bbox_xcycwh)
-                bbox_xywh = bbox_cxywh_xywh(bbox_xcycwh)
-                
+                bbox_xywh = bbox_cxywh_xywh(bbox_xcycwh)                
                 if persons_count > 0:
-                    im = ims[idx]
+                    im = s_ims[idx]
                     im = draw_bboxes_xywh(im, [bbox_xywh], None)
-                    im_p = os.path.join(save_folder, "{}.jpg".format(frame_count + idx))
-                    print("saving {}".format(im_p))
-                    cv2.imwrite(im_p, im)
-            #         f_p.write("{}, , , , , , \n".format("{}.jpg".format(frame_count + idx)))
+                    s_ims[idx] = im
+
         
-            # if frame_count % 200:
-            #     f_p.flush()
+        eam_im_ouput = b_outs_e[0]
+        bbox_xcycwh, cls_conf, cls_ids = eam_im_ouput
+        persons_count  = 0
+        
+        bbox_xywh = []
+        if bbox_xcycwh is not None and bbox_xcycwh != []:    
+            mask = cls_ids == 0
+            bbox_xcycwh = bbox_xcycwh[mask]
+            bbox_xcycwh[:, 3:] *= 1.2
+            cls_conf = cls_conf[mask]
+            persons_count = len(bbox_xcycwh)
+            bbox_xywh = bbox_cxywh_xywh(bbox_xcycwh)                
+            if persons_count > 0:
+                im = e_ims[-1]
+                im = draw_bboxes_xywh(im, [bbox_xywh], None)
+                e_ims[-1] = im
+        
+        for i in range(len(e_ims)):
+            im = np.concatenate([e_ims[-1], s_ims[i]], axis = 1)
+            video_output.write(im)
+        print(count)
+        count += 3
+    video_output.release()
+        
