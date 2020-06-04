@@ -173,7 +173,7 @@ class VideoCapture:
                     frames_list.append(f)
                 except queue.Empty:
                     break
-        # read next buffer size frames.
+        # read next buffer size frames.This might slow down capturing speed but we use it only during offline processing.
         else:
             for i in range(self.buffer_size):
                 ret, frame = self.cap.read()

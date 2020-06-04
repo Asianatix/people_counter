@@ -2,11 +2,17 @@
     "configurations": [
         
         {
-            "name": "Python: Current File",
+            "name": "Run default evaluation",
             "type": "python",
             "request": "launch",
-            "program": "${file}",
-            "console": "integratedTerminal"
+            "program": "/mnt/nfshome1/FRACTAL/vikash.challa/BMC/iff/people_counter/detectron2/tools/train_net.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--config-file",
+                "/data/surveillance_weights/visdrone_t1/test.yaml",   
+                "--eval-only"
+            ],
+            "justMyCode": false
         },
         
         {

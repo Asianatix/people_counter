@@ -23,8 +23,8 @@ class Detectron2:
             self.cfg.merge_from_file("detectron2/configs/COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml")
         else:
             self.cfg.merge_from_file(cfg_path)
-        self.cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.5  # Set min conf threshold
-        self.cfg.MODEL.ROI_HEADS.NMS_THRESH_TEST = 0.7 
+        self.cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.65  # Set min conf threshold
+        self.cfg.MODEL.ROI_HEADS.NMS_THRESH_TEST = 0.3 # NMS Threshold 
         
         if weights_path is None:
             print("Getting default weights path for detectron ")

@@ -129,6 +129,7 @@ if __name__ == "__main__":
                     ann_j = get_labelme_json(os.path.basename(im_save_p), im, bbox_xcycwh, labels = None,type = "cxywh")
                     ann_save_p = open(os.path.join(save_f, "{}.json".format(init_num + f_count)), "w")
                     json.dump(ann_j, ann_save_p)
+                    
 
         
 

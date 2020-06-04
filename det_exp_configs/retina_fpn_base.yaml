@@ -1,0 +1,32 @@
+_BASE_: "/mnt/nfshome1/FRACTAL/vikash.challa/BMC/iff/people_counter/detectron2/configs/Base-RetinaNet.yaml"
+MODEL:
+  #WEIGHTS: "detectron2://COCO-Detection/retinanet_R_50_FPN_1x.yaml"
+  WEIGHTS: "detectron2://COCO-Detection/retinanet_R_50_FPN_1x/137593951/model_final_b796dc.pkl"
+  DEVICE: "cuda:0"
+  META_ARCHITECTURE: "RetinaNet"
+  BACKBONE:
+    NAME: "build_retinanet_resnet_fpn_backbone"
+  RESNETS:
+    OUT_FEATURES: ["res3", "res4", "res5"]
+  ANCHOR_GENERATOR:
+    SIZES: !!python/object/apply:eval ["[[x, x * 2**(1.0/3), x * 2**(2.0/3) ] for x in [32, 64, 128, 256, 512 ]]"]
+  FPN:
+    IN_FEATURES: ["res3", "res4", "res5"]
+  RETINANET:
+    IOU_THRESHOLDS: [0.4, 0.5]
+    IOU_LABELS: [0, -1, 1]
+    NUM_CLASSES: 1
+DATASETS:
+  TRAIN: ("visdrone_t1_train_person","ideaforge_test",)
+  TEST: ("ideaforge_test",)
+SOLVER:
+  IMS_PER_BATCH: 4
+  BASE_LR: 0.01  # Note that RetinaNet uses a different default learning rate
+  STEPS: (60000, 80000)
+  MAX_ITER: 90000
+INPUT:
+  MIN_SIZE_TRAIN: (640, 672, 704, 736, 768, 800)
+VERSION: 2
+TEST:
+  EVAL_PERIOD: 900
+OUTPUT_DIR: "/nfs/gpu14_datasets//data/drone_experiments/retina_fpn_base"
