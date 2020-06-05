@@ -1,4 +1,10 @@
 {
     "python.pythonPath": "/nfs/gpu14_datasets/conda_envs/vikash/miniconda3/envs/mydetectorn/bin/python",
-    "python.linting.enabled": true
+    "python.linting.enabled": true,
+    "editor.formatOnSave": true,
+    "python.formatting.provider": "black",
+    "files.trimTrailingWhitespace": true,
+    "python.linting.lintOnSave": true,
+    "python.linting.flake8Enabled": true,
+    "python.linting.mypyEnabled": true
 }
