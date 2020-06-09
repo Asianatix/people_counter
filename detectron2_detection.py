@@ -12,7 +12,6 @@ from detectron2.utils.logger import setup_logger
 setup_logger()
 
 
-
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 
@@ -28,7 +27,7 @@ class Detectron2:
         else:
             self.cfg.merge_from_file(cfg_path)
         self.cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.65  # Set min conf threshold
-        self.cfg.MODEL.ROI_HEADS.NMS_THRESH_TEST = 0.3  # NMS Threshold
+        self.cfg.MODEL.ROI_HEADS.NMS_THRESH_TEST = 0.5  # NMS Threshold
 
         if weights_path is None:
             print("Getting default weights path for detectron ")
