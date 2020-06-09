@@ -7,12 +7,18 @@ import queue
 import threading
 import time
 from datetime import timedelta
+import PIL
+
+try:
+    _ = PIL.PILLO_VERSION
+except:
+    PIL.PILLOW_VERSION = PIL.__version__
 from distutils.util import strtobool
 
 import cv2
 import numpy as np
 import pandas as pd
-import PIL
+
 from tqdm import tqdm
 
 from deep_sort import DeepSort
@@ -27,10 +33,6 @@ from util import (
     get_bbox_xywh,
 )
 
-try:
-    _ = PIL.PILLO_VERSION
-except:
-    PIL.PILLOW_VERSION = PIL.__version__
 
 
 class Detector(object):
@@ -361,3 +363,7 @@ if __name__ == "__main__":
 # python  pc.py --tcp_ip_port 192.168.50.1:9999 --video_path rtsp://192.168.50.1:40000 --save_frames_to frames
 # python  pc.py --tcp_ip_port 192.168.50.1:9999 --video_path rtsp://192.168.50.1:40000 --save_frames_to frame   --proc_freq 40
 # python pc.py --display --tcp_ip_port 192.168.50.1:9999 --video_path /home/rajneesh/Downloads/all_ideaf_videos/03April202012_23_22_Raw.mp4
+
+
+# Incase of docker
+
