@@ -1,6 +1,6 @@
 {
     "configurations": [
-        
+
         {
             "name": "Run default evaluation",
             "type": "python",
@@ -9,12 +9,12 @@
             "console": "integratedTerminal",
             "args": [
                 "--config-file",
-                "/data/surveillance_weights/visdrone_t1/test.yaml",   
+                "/data/surveillance_weights/visdrone_t1/test.yaml",
                 "--eval-only"
             ],
             "justMyCode": false
         },
-        
+
         {
             "name": "Python: PC-cap-buffer-1",
             "type": "python",

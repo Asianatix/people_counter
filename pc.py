@@ -1,34 +1,36 @@
+import argparse
+import copy
+import json
+import math
+import os
+import queue
+import threading
+import time
+from datetime import timedelta
+from distutils.util import strtobool
+
+import cv2
+import numpy as np
+import pandas as pd
 import PIL
+from tqdm import tqdm
+
+from deep_sort import DeepSort
+from detectron2_detection import Detectron2
+from TCP.TCPClient import TCPClient
+from util import (
+    VideoCapture,
+    agrregate_split_results,
+    bbox_cxywh_xywh,
+    draw_bboxes,
+    draw_bboxes_xywh,
+    get_bbox_xywh,
+)
 
 try:
     _ = PIL.PILLO_VERSION
 except:
     PIL.PILLOW_VERSION = PIL.__version__
-import argparse
-import argparse
-import os
-import time
-from distutils.util import strtobool
-import copy
-from datetime import timedelta
-import pandas as pd
-import numpy as np
-import cv2
-from deep_sort import DeepSort
-from detectron2_detection import Detectron2
-from util import (
-    draw_bboxes,
-    get_bbox_xywh,
-    agrregate_split_results,
-    draw_bboxes_xywh,
-    VideoCapture,
-    bbox_cxywh_xywh,
-)
-import json
-from TCP.TCPClient import TCPClient
-import queue, threading, time
-import math
-from tqdm import tqdm
 
 
 class Detector(object):
@@ -54,6 +56,7 @@ class Detector(object):
             self.im_height = int(self.vdo.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
             fps = 20
         except Exception as e:
+            print(e)
             self.im_width = 1280
             self.im_height = 786
             fps = 20
@@ -125,6 +128,7 @@ class Detector(object):
                     bbox_xywh = bbox_cxywh_xywh(bbox_xcycwh)
                     final_bbox_xywh.append(bbox_xywh)
         return final_bbox_xywh
+
     def _get_latest_frames(self, filter_policy=None):
 
         flag, im = self.vdo.read()
@@ -154,7 +158,6 @@ class Detector(object):
         persons_count = 0
 
         model_avg_time = 0.0
-        model_total_time = 0.0
 
         proc_avg_time = 0.0
         proc_total_time = 0.0
@@ -358,4 +361,3 @@ if __name__ == "__main__":
 # python  pc.py --tcp_ip_port 192.168.50.1:9999 --video_path rtsp://192.168.50.1:40000 --save_frames_to frames
 # python  pc.py --tcp_ip_port 192.168.50.1:9999 --video_path rtsp://192.168.50.1:40000 --save_frames_to frame   --proc_freq 40
 # python pc.py --display --tcp_ip_port 192.168.50.1:9999 --video_path /home/rajneesh/Downloads/all_ideaf_videos/03April202012_23_22_Raw.mp4
-

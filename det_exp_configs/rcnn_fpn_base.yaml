@@ -2,12 +2,12 @@ _BASE_: "/mnt/nfshome1/FRACTAL/vikash.challa/BMC/iff/people_counter/detectron2/c
 MODEL:
   DEVICE: "cuda:1"
 DATASETS:
-  TRAIN: ("visdrone_t1_train_person","ideaforge_test",)
+  TRAIN: ("visdrone_t1_train_person",)
   #TEST: ("visdrone_t1_val_person",)
-  TEST: ("ideaforge_test",)
+  TEST: ("ideaforge_test_v0.1",)
 MODEL:
   #WEIGHTS: "detectron2://COCO-Detection/faster_rcnn_R_50_FPN_1x.yaml"
-  WEIGHTS: "detectron2://COCO-Detection/faster_rcnn_R_50_C4_1x/137257644/model_final_721ade.pkl"
+  WEIGHTS: "detectron2://COCO-Detection/faster_rcnn_R_50_FPN_3x/137849458/model_final_280758.pkl"
   MASK_ON: False
   RESNETS:
     DEPTH: 50
@@ -23,5 +23,5 @@ SOLVER:
 TEST:
   EVAL_PERIOD: 900
   DETECTIONS_PER_IMAGE: 300
-OUTPUT_DIR: "/nfs/gpu14_datasets//data/drone_experiments/rcnn_fpn_base"
+OUTPUT_DIR: "/nfs/gpu14_datasets/data/drone_experiments/rcnn_fpn_base_3x_vt1p_ift"
 #self.cfg.MODEL.ROI_HEADS.NMS_THRESH_TEST = 0.3 # NMS Threshold

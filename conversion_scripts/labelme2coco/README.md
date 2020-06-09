@@ -2,7 +2,7 @@
 ![CI](https://github.com/fcakyon/labelme2coco/workflows/CI/badge.svg)
 
 # labelme2coco Python Package for Linux/MacOS/Windows
-Make your own dataset for object detection/instance segmentation using [labelme](https://github.com/wkentaro/labelme) and transform the format to coco json format 
+Make your own dataset for object detection/instance segmentation using [labelme](https://github.com/wkentaro/labelme) and transform the format to coco json format
 
 ## Convert LabelMe annotations to COCO format in one step
 [labelme](https://github.com/wkentaro/labelme) is a widely used is a graphical image annotation tool that supports classification, segmentation, instance segmentation and object detection formats.
@@ -30,4 +30,3 @@ save_json_path = "tests/data/test_coco.json"
 # convert labelme annotations to coco
 labelme2coco.convert(labelme_folder, save_json_path)
 ```
-

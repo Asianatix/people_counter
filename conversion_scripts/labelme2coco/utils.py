@@ -1,84 +1,56 @@
-import os
 import json
+import os
+
 import jsonschema
 
 image_schema = {
     "type": "object",
-    "properties": {
-        "file_name": {
-            "type": "string"
-            },
-        "id": {
-            "type": "integer"
-            }
-    },
-    "required": ["file_name", "id"]
+    "properties": {"file_name": {"type": "string"}, "id": {"type": "integer"}},
+    "required": ["file_name", "id"],
 }
 
 segmentation_schema = {
     "type": "array",
-    "items": {
-        "type": "array",
-        "items": {
-            "type": "number",
-            },
-        "additionalItems": False
-        },
-    "additionalItems": False
+    "items": {"type": "array", "items": {"type": "number",}, "additionalItems": False},
+    "additionalItems": False,
 }
 
 annotation_schema = {
     "type": "object",
     "properties": {
-        "image_id": {
-            "type": "integer"
-            },
-        "category_id": {
-            "type": "integer"
-            },
-        "segmentation": segmentation_schema
+        "image_id": {"type": "integer"},
+        "category_id": {"type": "integer"},
+        "segmentation": segmentation_schema,
     },
-    "required": ["image_id", "category_id", "segmentation"]
+    "required": ["image_id", "category_id", "segmentation"],
 }
 
 category_schema = {
     "type": "object",
-    "properties": {
-        "name": {
-            "type": "string"
-            },
-        "id": {
-            "type": "integer"
-            }
-    },
-    "required": ["name", "id"]
+    "properties": {"name": {"type": "string"}, "id": {"type": "integer"}},
+    "required": ["name", "id"],
 }
 
 coco_schema = {
     "type": "object",
     "properties": {
-        "images": {
-            "type": "array",
-            "items": image_schema,
-            "additionalItems": False
-            },
+        "images": {"type": "array", "items": image_schema, "additionalItems": False},
         "annotations": {
             "type": "array",
             "items": annotation_schema,
-            "additionalItems": False
-            },
+            "additionalItems": False,
+        },
         "categories": {
             "type": "array",
             "items": category_schema,
-            "additionalItems": False
-            }
+            "additionalItems": False,
+        },
     },
-    "required": ["images", "annotations", "categories"]
+    "required": ["images", "annotations", "categories"],
 }
 
 
-def read_and_validate_coco_annotation(
-        coco_annotation_path: str) -> (dict, bool):
+def read_and_validate_coco_annotation(coco_annotation_path: str) -> (dict, bool):
     """
     Reads coco formatted annotation file and validates its fields.
     """
@@ -131,6 +103,10 @@ def list_jsons_recursively(directories, silent=True):
                     abs_filepath_list.append(abs_filepath)
                     relative_filepath = abs_filepath.split(directory)[-1]
                     relative_filepath_list.append(relative_filepath)
-    print("Total length of annotation json files found: {} have jsons not imgs:{}".format(len(relative_filepath_list), missed))
+    print(
+        "Total length of annotation json files found: {} have jsons not imgs:{}".format(
+            len(relative_filepath_list), missed
+        )
+    )
 
     return relative_filepath_list, abs_filepath_list

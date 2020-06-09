@@ -1,14 +1,16 @@
-import os
 import json
+import os
+
+import numpy as np
 import PIL.Image
 import PIL.ImageDraw
-import numpy as np
-from .utils import create_dir, list_jsons_recursively
+
 from .image_utils import read_image_shape_as_dict
+from .utils import create_dir, list_jsons_recursively
 
 
 class labelme2coco(object):
-    def __init__(self, labelme_folders='', save_json_path='./new.json'):
+    def __init__(self, labelme_folders="", save_json_path="./new.json"):
         """
         Args:
             labelme_folder: folder that contains labelme annotations and image files
@@ -35,18 +37,18 @@ class labelme2coco(object):
 
     def data_transfer(self):
         for num, json_path in enumerate(self.labelme_json):
-            with open(json_path, 'r') as fp:
+            with open(json_path, "r") as fp:
                 # load json
                 data = json.load(fp)
-#                (prefix, res) = os.path.split(json_path)
-#                (file_name, extension) = os.path.splitext(res)
+                #                (prefix, res) = os.path.split(json_path)
+                #                (file_name, extension) = os.path.splitext(res)
                 self.images.append(self.image(data, num, json_path))
-                for shapes in data['shapes']:
-                    label = shapes['label']
+                for shapes in data["shapes"]:
+                    label = shapes["label"]
                     if label not in self.label:
                         self.categories.append(self.category(label))
                         self.label.append(label)
-                    points = shapes['points']
+                    points = shapes["points"]
                     self.annotations.append(self.annotation(points, label, num))
                     self.annID += 1
 
@@ -56,12 +58,12 @@ class labelme2coco(object):
         _, img_extension = os.path.splitext(data["imagePath"])
         image_path = json_path.replace(".json", img_extension)
         img_shape = read_image_shape_as_dict(image_path)
-        height, width = img_shape['height'], img_shape['width']
+        height, width = img_shape["height"], img_shape["width"]
 
-        image['height'] = height
-        image['width'] = width
-        image['id'] = int(num + 1)
-        image['file_name'] = image_path
+        image["height"] = height
+        image["width"] = width
+        image["id"] = int(num + 1)
+        image["file_name"] = image_path
 
         self.height = height
         self.width = width
@@ -70,41 +72,43 @@ class labelme2coco(object):
 
     def category(self, label):
         category = {}
-        category['supercategory'] = label
-        category['id'] = int(len(self.label) + 1)
-        category['name'] = label
+        category["supercategory"] = label
+        category["id"] = int(len(self.label) + 1)
+        category["name"] = label
 
         return category
 
     def annotation(self, points, label, num):
         annotation = {}
-        annotation['iscrowd'] = 0
-        annotation['image_id'] = int(num + 1)
+        annotation["iscrowd"] = 0
+        annotation["image_id"] = int(num + 1)
 
-        annotation['bbox'] = list(map(float, self.getbbox(points)))
+        annotation["bbox"] = list(map(float, self.getbbox(points)))
 
         # coarsely from bbox to segmentation
-        x = annotation['bbox'][0]
-        y = annotation['bbox'][1]
-        w = annotation['bbox'][2]
-        h = annotation['bbox'][3]
-        annotation['segmentation'] = [[x, y, x+w, y, x+w, y+h, x, y+h]] # at least 6 points
+        x = annotation["bbox"][0]
+        y = annotation["bbox"][1]
+        w = annotation["bbox"][2]
+        h = annotation["bbox"][3]
+        annotation["segmentation"] = [
+            [x, y, x + w, y, x + w, y + h, x, y + h]
+        ]  # at least 6 points
 
-        annotation['category_id'] = self.getcatid(label)
-        annotation['id'] = int(self.annID)
+        annotation["category_id"] = self.getcatid(label)
+        annotation["id"] = int(self.annID)
         # add area info
-        annotation['area'] = w * h  # the area is not used for detection
+        annotation["area"] = w * h  # the area is not used for detection
         return annotation
 
     def getcatid(self, label):
         for categorie in self.categories:
-            if label == categorie['name']:
-                return categorie['id']
+            if label == categorie["name"]:
+                return categorie["id"]
             # if label[1]==categorie['name']:
             #     return categorie['id']
         return -1
 
-    def getbbox(self,points):
+    def getbbox(self, points):
         # img = np.zeros([self.height,self.width],np.uint8)
         # cv2.polylines(img, [np.asarray(points)], True, 1, lineType=cv2.LINE_AA)
         # cv2.fillPoly(img, [np.asarray(points)], 1)
@@ -124,7 +128,12 @@ class labelme2coco(object):
         right_bottom_r = np.max(rows)
         right_bottom_c = np.max(clos)
 
-        return [left_top_c, left_top_r, right_bottom_c-left_top_c, right_bottom_r-left_top_r]  # [x1,y1,w,h] for coco box format
+        return [
+            left_top_c,
+            left_top_r,
+            right_bottom_c - left_top_c,
+            right_bottom_r - left_top_r,
+        ]  # [x1,y1,w,h] for coco box format
 
     def polygons_to_mask(self, img_shape, polygons):
         mask = np.zeros(img_shape, dtype=np.uint8)
@@ -136,16 +145,22 @@ class labelme2coco(object):
 
     def data2coco(self):
         data_coco = {}
-        data_coco['images'] = self.images
-        data_coco['categories'] = self.categories
-        data_coco['annotations'] = self.annotations
+        data_coco["images"] = self.images
+        data_coco["categories"] = self.categories
+        data_coco["annotations"] = self.annotations
         return data_coco
 
     def save_json(self):
         self.data_transfer()
         self.data_coco = self.data2coco()
 
-        json.dump(self.data_coco, open(self.save_json_path, 'w', encoding='utf-8'), indent=4, separators=(',', ': '), cls=MyEncoder)
+        json.dump(
+            self.data_coco,
+            open(self.save_json_path, "w", encoding="utf-8"),
+            indent=4,
+            separators=(",", ": "),
+            cls=MyEncoder,
+        )
 
 
 # type check when save json files

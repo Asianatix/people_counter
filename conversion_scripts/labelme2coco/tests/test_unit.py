@@ -2,12 +2,15 @@ import unittest
 
 
 class Tests(unittest.TestCase):
-
     def test_read_and_validate_coco_annotation(self):
         from labelme2coco.utils import read_and_validate_coco_annotation
 
-        false_sample_list = ["tests/data/coco_false_" + str(ind)+".json" for ind in range(17)]
-        true_sample_list = ["tests/data/coco_true_" + str(ind)+".json" for ind in range(2)]
+        false_sample_list = [
+            "tests/data/coco_false_" + str(ind) + ".json" for ind in range(17)
+        ]
+        true_sample_list = [
+            "tests/data/coco_true_" + str(ind) + ".json" for ind in range(2)
+        ]
 
         for false_sample in false_sample_list:
             _, response = read_and_validate_coco_annotation(false_sample)
@@ -41,5 +44,5 @@ class Tests(unittest.TestCase):
         os.remove(save_json_path)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

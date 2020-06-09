@@ -1,11 +1,12 @@
 import socket
-import threading
 import struct
 import sys
+import threading
 import time
 
+
 class TCPServer:
-    def __init__(self,host,port):
+    def __init__(self, host, port):
         self.host = host
         self.port = port
         self.connectionStatus = False
@@ -26,19 +27,23 @@ class TCPServer:
             print("Socket Binding error" + str(msg) + "\n" + "Retrying...")
             self.BindSocket()
 
-
     def AcceptConnections(self):
         self.BindSocket()
         while True:
             try:
                 self.connection, self.address = self.sckt.accept()
-                  # prevents timeout
-                print("Connection has been established :" + str(self.address[0]) + "at port " + str(self.address[1]))
+                # prevents timeout
+                print(
+                    "Connection has been established :"
+                    + str(self.address[0])
+                    + "at port "
+                    + str(self.address[1])
+                )
                 self.connectionStatus = True
             except socket.error as msg:
                 self.connectionStatus = False
                 print("Error accepting connection from " + str(msg))
-                if(self.closeConnection):
+                if self.closeConnection:
                     break
                 else:
                     self.connection.close()
@@ -47,10 +52,10 @@ class TCPServer:
 
     def CloseConnection(self):
         self.closeConnection = True
-        if(self.connection != None):
+        if self.connection != None:
             self.connection.close()
             self.connection = None
-        if(self.sckt != None):
+        if self.sckt != None:
             self.sckt.close()
             self.sckt = None
         self.AcceptConnectionsThread.join()
@@ -68,7 +73,6 @@ class TCPServer:
             data.extend(packet)
         return data
 
-
     def ReceiveMessage(self):
         # Read message length and unpack it into an integer
         if self.connection == None:
@@ -76,23 +80,22 @@ class TCPServer:
         raw_msglen = self.ReceiveAll(4)
         if not raw_msglen:
             return None
-        msglen = 4*struct.unpack('>I', raw_msglen)[0]
+        msglen = 4 * struct.unpack(">I", raw_msglen)[0]
         # Read the message data
-        data = self.ReceiveAll(msglen*4)
-        return data,msglen
-
+        data = self.ReceiveAll(msglen * 4)
+        return data, msglen
 
     def GetDetections(self):
         while not self.closeConnection:
             try:
-                if(self.connection == None):
+                if self.connection == None:
                     continue
-                data,n_boxes = self.ReceiveMessage()
-                ll = struct.unpack('f'*n_boxes,data)
+                data, n_boxes = self.ReceiveMessage()
+                ll = struct.unpack("f" * n_boxes, data)
                 print(ll)
             except socket.error as msg:
                 print("Error receiving commands" + str(msg))
-                if(self.closeConnection):
+                if self.closeConnection:
                     break
                 else:
                     continue
@@ -105,12 +108,13 @@ class TCPServer:
         self.GetDetectionsThread.start()
         time.sleep(1)
 
+
 def main():
-    server = TCPServer(host = '127.0.0.1', port = 9999)
+    server = TCPServer(host="127.0.0.1", port=9999)
     server.LaunchTCP()
     cmd = input()
     server.CloseConnection()
 
+
 if __name__ == "__main__":
     main()
-
